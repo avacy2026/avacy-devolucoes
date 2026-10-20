@@ -1,0 +1,797 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="color-scheme" content="dark">
+<title>Devoluções Avacy</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root{--roxo:#7C3AED;--roxo-light:#A78BFA;--roxo-dark:#5B21B6;--amber:#F59E0B;--teal:#0D9488;--teal-light:#2DD4BF;--bg:#0F0D1A;--card:#1A1730;--card2:#221E38;--input:#2A2545;--line:#3D3660;--ink:#F8F7FF;--mute:#9B96C0;--dim:#6B6490;--ok:#10B981;--bad:#EF4444;--r:12px}
+*{box-sizing:border-box}
+body{margin:0;font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--ink);font-size:14px;min-height:100vh}
+header{background:linear-gradient(135deg,#1A1730 0%,#0F0D1A 100%);border-bottom:1px solid var(--line);padding:0 32px;min-height:64px;display:flex;align-items:center;gap:24px;flex-wrap:wrap;position:sticky;top:0;z-index:30}
+.brand{font-size:20px;font-weight:800;background:linear-gradient(90deg,var(--roxo-light),var(--teal-light));-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;white-space:nowrap}
+.env{background:var(--amber);color:#000;font-size:11px;font-weight:700;padding:2px 8px;border-radius:10px}
+.env:empty{display:none}
+.tabs{display:flex;gap:4px}
+.tabs button{background:transparent;border:0;color:var(--mute);padding:8px 20px;border-radius:8px;cursor:pointer;font:500 14px 'Inter',sans-serif;transition:all .2s}
+.tabs button:hover{background:var(--card2);color:var(--ink)}
+.tabs button.on{background:linear-gradient(135deg,var(--roxo-dark),var(--roxo));color:#fff}
+main{padding:28px 32px;max-width:1600px;margin:0 auto}
+.banner{background:rgba(124,58,237,.12);border:1px solid rgba(124,58,237,.45);color:var(--roxo-light);padding:10px 14px;border-radius:8px;margin-bottom:12px;display:none;cursor:pointer}
+.banner.show{display:block}
+.kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-bottom:14px}
+.kpi{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:14px 16px;cursor:default}
+.kpi .k{font-size:11px;color:var(--mute);text-transform:uppercase;font-weight:600;letter-spacing:.05em}
+.kpi .v{font-size:22px;font-weight:700;margin-top:4px;font-variant-numeric:tabular-nums}
+.kpi.click{cursor:pointer}.kpi.click:hover{border-color:var(--amber)}
+.kpi.pend .v{color:var(--amber)}
+.bar{display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end;background:var(--card);padding:16px;border-radius:var(--r);border:1px solid var(--line);margin-bottom:14px}
+.f{display:flex;flex-direction:column;gap:6px;min-width:0}
+.f label{font-size:11px;color:var(--mute);font-weight:600;text-transform:uppercase;letter-spacing:.05em}
+input,select,textarea{font:14px 'Inter',sans-serif;padding:9px 12px;border:1px solid var(--line);border-radius:8px;background:var(--input);color:var(--ink);outline:none;transition:border-color .2s,box-shadow .2s;min-width:0}
+input:focus,select:focus,textarea:focus{border-color:var(--roxo-light);box-shadow:0 0 0 3px rgba(124,58,237,.15)}
+input[type=date]{color-scheme:dark}
+select option{background:var(--card2)}
+::placeholder{color:var(--dim)}
+textarea{resize:vertical;min-height:70px}
+.btn{font:600 13px 'Inter',sans-serif;padding:9px 16px;border-radius:8px;border:1px solid var(--line);background:var(--card2);color:var(--mute);cursor:pointer;white-space:nowrap;transition:all .2s}
+.btn:hover{border-color:var(--roxo-light);color:var(--ink)}
+.btn.pri{background:linear-gradient(135deg,var(--roxo),var(--roxo-dark));border-color:transparent;color:#fff}
+.btn.pri:hover{filter:brightness(1.15)}
+.btn.danger{background:transparent;color:var(--bad);border-color:rgba(239,68,68,.4)}
+.btn.danger:hover{background:rgba(239,68,68,.1)}
+.btn.link{background:none;border:0;color:var(--roxo-light);padding:4px 0}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+.spacer{flex:1}
+.count{color:var(--mute);font-size:12px;margin:0 2px 8px}
+.tablewrap{background:var(--card);border:1px solid var(--line);border-radius:var(--r);overflow:auto;max-height:calc(100vh - 330px)}
+table{width:100%;border-collapse:collapse;min-width:1300px}
+th{text-align:left;font-size:11px;text-transform:uppercase;color:var(--mute);padding:11px 12px;border-bottom:1px solid var(--line);background:var(--card2);letter-spacing:.05em;position:sticky;top:0;z-index:2;white-space:nowrap;cursor:pointer;user-select:none}
+th:hover{color:var(--ink)}
+th .ar{color:var(--roxo-light)}
+td{padding:10px 12px;border-bottom:1px solid rgba(61,54,96,.5);vertical-align:top}
+tbody tr{cursor:pointer;transition:background .15s}
+tbody tr:hover{background:var(--card2)}
+td.n{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+th.n{text-align:right}
+.nw{white-space:nowrap}
+.sub{color:var(--mute);font-size:12px;margin-top:2px}
+.mono{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:13px}
+.clip2{max-width:260px;overflow:hidden;text-overflow:ellipsis;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+.miss{color:var(--amber);opacity:.8}
+.empty{text-align:center;color:var(--mute);padding:40px!important;cursor:default}
+.st{display:inline-block;padding:3px 10px;border-radius:99px;font-size:12px;font-weight:600;white-space:nowrap;border:1px solid transparent}
+.st-pendente{background:rgba(245,158,11,.12);color:#FCD34D;border-color:rgba(245,158,11,.45)}
+.st-completo{background:rgba(16,185,129,.12);color:#6EE7B7;border-color:rgba(16,185,129,.4)}
+.org{display:inline-block;font-size:11px;font-weight:700;padding:2px 8px;border-radius:6px}
+.org-Martins{background:rgba(13,148,136,.15);color:var(--teal-light)}
+.org-Avacy{background:rgba(124,58,237,.18);color:var(--roxo-light)}
+.cp{border:0;background:none;cursor:pointer;color:var(--dim);font-size:12px;padding:2px 4px;border-radius:4px;transition:all .15s}
+.cp:hover{color:var(--roxo-light);background:rgba(124,58,237,.1)}
+/* drawer */
+.overlay{position:fixed;inset:0;background:rgba(0,0,0,.55);display:none;z-index:40}
+.overlay.show{display:block}
+.drawer{position:fixed;top:0;right:0;bottom:0;width:min(640px,100%);background:var(--card);border-left:1px solid var(--line);z-index:50;transform:translateX(100%);transition:transform .2s;display:flex;flex-direction:column;box-shadow:-8px 0 30px rgba(0,0,0,.5)}
+.drawer.show{transform:none}
+.dh{padding:16px 20px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:10px;background:var(--card2)}
+.dh #dTitle{font-weight:700;font-size:16px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.x{margin-left:auto;border:0;background:none;font-size:24px;cursor:pointer;color:var(--mute);line-height:1}
+.x:hover{color:var(--ink)}
+.db{overflow:auto;padding:18px 20px;flex:1}
+.df{border-top:1px solid var(--line);padding:12px 20px;display:flex;gap:8px;background:var(--card2)}
+h4{margin:18px 0 10px;font-size:11px;text-transform:uppercase;color:var(--mute);letter-spacing:.05em}
+h4:first-child{margin-top:0}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px 14px}
+.grid2 .f input,.grid2 .f select,.grid2 .f textarea{width:100%}
+.full{grid-column:1/-1}
+.req > label::after{content:' *';color:var(--amber)}
+.f.empty-req input,.f.empty-req select,.f.empty-req textarea{border-color:rgba(245,158,11,.55)}
+.frete{display:flex;gap:8px;align-items:center}
+.frete input[type=text]{flex:1}
+.chk{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--mute);white-space:nowrap;cursor:pointer}
+.chk input{accent-color:var(--roxo)}
+.ref{font-size:12px;color:var(--mute)}
+.meta{font-size:12px;color:var(--dim);margin-top:16px}
+/* modais */
+.modal{position:fixed;inset:0;background:rgba(0,0,0,.6);display:none;align-items:center;justify-content:center;z-index:60;padding:16px}
+.modal.show{display:flex}
+.box{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:24px;width:min(560px,100%);max-height:92vh;overflow:auto}
+.box h3{margin:0 0 6px;font-size:18px}
+.box .sub{margin-bottom:16px}
+.foot{display:flex;justify-content:flex-end;gap:8px;margin-top:18px;align-items:center}
+.drop{border:2px dashed var(--line);border-radius:12px;padding:30px 16px;text-align:center;color:var(--mute);cursor:pointer;transition:all .2s}
+.drop:hover,.drop.over{border-color:var(--roxo-light);background:rgba(124,58,237,.08);color:var(--ink)}
+.drop b{color:var(--roxo-light)}
+.res{display:flex;flex-direction:column;gap:8px;margin-top:14px}
+.res:empty{display:none}
+.ri{display:flex;gap:10px;align-items:flex-start;background:var(--input);border:1px solid var(--line);border-radius:10px;padding:10px 12px;font-size:13px}
+.ri .ic{font-weight:800;width:18px;text-align:center}
+.ri.ok .ic{color:var(--ok)}.ri.bad .ic{color:var(--bad)}.ri.warn .ic{color:var(--amber)}
+.ri .t{flex:1;min-width:0}
+.ri .t div:first-child{font-weight:600}
+.ri .btn{padding:5px 10px;font-size:12px}
+.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--card2);border:1px solid var(--line);color:var(--ink);padding:11px 18px;border-radius:10px;z-index:80;display:none;max-width:90%;box-shadow:0 8px 24px rgba(0,0,0,.4)}
+.toast.ok{border-color:rgba(16,185,129,.5);color:var(--ok)}.toast.bad{border-color:rgba(239,68,68,.5);color:var(--bad)}
+::-webkit-scrollbar{width:8px;height:8px}::-webkit-scrollbar-track{background:var(--bg)}::-webkit-scrollbar-thumb{background:var(--line);border-radius:4px}
+@media(max-width:900px){.kpis{grid-template-columns:1fr 1fr}}
+@media(max-width:640px){.kpi .v{font-size:17px}header{padding:10px 16px}main{padding:16px}.grid2{grid-template-columns:1fr}.tablewrap{max-height:none}}
+</style>
+</head>
+<body>
+<header>
+  <span class="brand">Devoluções</span>
+  <span class="env" id="env"></span>
+  <div class="tabs" id="tabs">
+    <button data-tab="dev">Devoluções</button>
+    <button data-tab="adi">Adicional</button>
+    <button data-tab="des">Descontos</button>
+  </div>
+</header>
+
+<main>
+  <div class="banner" id="banner">Há atualizações feitas por outra pessoa. Clique para atualizar a lista.</div>
+
+  <div class="kpis" id="kpis"></div>
+
+  <div class="bar" id="bar">
+    <div class="f" style="flex:1;min-width:220px"><label>Busca</label><input id="fBusca"></div>
+    <div class="f"><label>Origem</label><select id="fOrigem"><option value="">Todas</option><option>Martins</option><option>Avacy</option></select></div>
+    <div class="f"><label>Vendedor</label><select id="fVend"></select></div>
+    <div class="f"><label>Status</label><select id="fStatus"><option value="">Todos</option><option value="pendente">Pendente</option><option value="completo">Completo</option></select></div>
+    <div class="f" id="wMotivo"><label>Motivo</label><select id="fMotivo"></select></div>
+    <div class="f" id="wTipo"><label>Tipo</label><select id="fTipo"><option value="">Todos</option><option>Desconto</option><option>NCC</option><option>Abatimento</option><option>Ressarcimento</option></select></div>
+    <div class="f" id="wTransp"><label>Transportadora</label><select id="fTransp"></select></div>
+    <div class="f"><label id="lDe">De</label><input type="date" id="fDe"></div>
+    <div class="f"><label>Até</label><input type="date" id="fAte"></div>
+    <button class="btn" id="btnLimpar">Limpar</button>
+    <div class="spacer"></div>
+    <button class="btn" id="btnCsv" title="Baixa exatamente o que está filtrado na tela">⬇ Baixar CSV</button>
+    <button class="btn pri" id="btnNovo">+ Novo</button>
+  </div>
+
+  <div class="count" id="count"></div>
+  <div class="tablewrap"><table><thead id="thead"></thead><tbody id="rows"></tbody></table></div>
+</main>
+
+<div class="overlay" id="ov"></div>
+<aside class="drawer" id="drawer">
+  <div class="dh"><div id="dTitle"></div><button class="x" id="dClose" title="Fechar">×</button></div>
+  <div class="db" id="dBody"></div>
+  <div class="df">
+    <button class="btn danger" id="dDel">Excluir</button>
+    <div class="spacer"></div>
+    <button class="btn" id="dCancel">Fechar</button>
+    <button class="btn pri" id="dSave">Salvar</button>
+  </div>
+</aside>
+
+<!-- Upload XML -->
+<div class="modal" id="upModal">
+  <div class="box">
+    <h3 id="upTitle">Nova devolução</h3>
+    <div class="sub">Envie o XML da nota fiscal. Os dados da nota são preenchidos sozinhos; o resto você completa em seguida.</div>
+    <label class="drop" id="drop">
+      <input type="file" id="xmlIn" accept=".xml,text/xml" multiple hidden>
+      Arraste os XMLs aqui ou <b>clique para escolher</b><br><small>Pode enviar vários de uma vez</small>
+    </label>
+    <div class="res" id="upRes"></div>
+    <div class="foot"><button class="btn link" id="upManual">Cadastrar sem XML</button><div class="spacer"></div><button class="btn" id="upClose">Fechar</button></div>
+  </div>
+</div>
+
+<!-- Confirmação -->
+<div class="modal" id="cfModal">
+  <div class="box">
+    <h3 id="cfTitle"></h3>
+    <div class="sub" id="cfText"></div>
+    <div class="foot"><button class="btn" id="cfNo">Voltar</button><button class="btn danger" id="cfYes">Excluir</button></div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+<datalist id="dlVend"></datalist>
+<datalist id="dlTransp"></datalist>
+
+<script>
+// ============ CONFIGURAÇÃO ============
+const CONFIG = {
+  SUPABASE_URL: 'https://ufsoulckfkhtwurgyxlp.supabase.co',
+  SUPABASE_KEY: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVmc291bGNrZmtodHd1cmd5eGxwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIyNjczMTYsImV4cCI6MjA5Nzg0MzMxNn0.3JvUgfcllDgvs-THSADTjg15UYk5Bv8fA6GC5i9Cpg0',
+  PREFIX: 'hml_',            // produção: ''
+  AMBIENTE: 'HOMOLOGAÇÃO'    // produção: ''
+};
+// ======================================
+
+const T = n => CONFIG.PREFIX + 'dev_' + n;
+const sb = supabase.createClient(CONFIG.SUPABASE_URL, CONFIG.SUPABASE_KEY);
+const $ = s => document.querySelector(s);
+const $$ = s => [...document.querySelectorAll(s)];
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const dig = s => String(s ?? '').replace(/\D/g, '');
+const ls = { get(k){ try { return localStorage.getItem(k); } catch(e){ return null; } }, set(k,v){ try { localStorage.setItem(k,v); } catch(e){} } };
+
+// ---------- formatação ----------
+const brl = v => v == null || v === '' ? '' : Number(v).toLocaleString('pt-BR', {style:'currency', currency:'BRL'});
+const brNum = v => v == null || v === '' ? '' : Number(v).toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2});
+const brDate = iso => iso ? iso.slice(0,10).split('-').reverse().join('/') : '';
+function parseNum(s){
+  s = String(s ?? '').replace(/R\$|\s/g, '');
+  if(!s) return null;
+  if(s.includes(',')) s = s.replace(/\./g, '').replace(',', '.');
+  const n = Number(s);
+  return isFinite(n) ? Math.round(n*100)/100 : NaN;
+}
+function maskCnpj(v){
+  const d = dig(v);
+  if(d.length === 14) return d.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/, '$1.$2.$3/$4-$5');
+  if(d.length === 11) return d.replace(/^(\d{3})(\d{3})(\d{3})(\d{2})$/, '$1.$2.$3-$4');
+  return v || '';
+}
+const maskCep = v => { const d = dig(v); return d.length === 8 ? d.slice(0,5) + '-' + d.slice(5) : (v || ''); };
+const copyBtn = v => v ? `<button class="cp" data-copy="${esc(v)}" title="Copiar">⧉</button>` : '';
+const MISS = '<span class="miss">—</span>';
+const freteTxt = (v, sem) => sem ? '<span class="sub">sem frete</span>' : (v == null ? MISS : brl(v));
+
+// transportadora: nome curto padrão (igual ao histórico)
+const TRANSP_CURTAS = ['BRASPRESS','JAMEF','FEDEX','PATRUS','RODONAVES','BUSLOG','TNT','JADLOG','CORREIOS'];
+function transpCurta(n){
+  const u = String(n || '').toUpperCase().trim();
+  return TRANSP_CURTAS.find(t => u.includes(t)) || u || null;
+}
+
+// ---------- definição das frentes ----------
+const TABS = {
+  dev: {
+    titulo: 'Devoluções', novo: '+ Nova devolução', tabela: 'devolucoes', dataKey: 'data_devolucao', lblData: 'Data devolução',
+    busca: 'NF, NFD, cliente, CNPJ, pedido, ocorrência',
+    buscaKeys: ['nf','nfd','cliente','cnpj','pedido','ocorrencia','vendedor'],
+    cols: [
+      {h:'Status', k:'status', v:r => `<span class="st st-${r.status}">${r.status === 'completo' ? 'Completo' : 'Pendente'}</span>`},
+      {h:'Origem', k:'origem', v:r => `<span class="org org-${r.origem}">${esc(r.origem)}</span>${r.origem === 'Avacy' ? `<div class="sub">${esc(r.vendedor||'')}</div>` : ''}`},
+      {h:'Transp.', k:'transportadora', v:r => esc(r.transportadora) || MISS},
+      {h:'Cliente', k:'cliente', v:r => `<div class="clip2">${esc(r.cliente) || MISS}</div><div class="sub nw">${esc(maskCnpj(r.cnpj))}</div>`},
+      {h:'NF', k:'nf', v:r => `<span class="mono nw">${esc(r.nf)}${copyBtn(r.nf)}</span>`},
+      {h:'NFD', k:'nfd', v:r => r.nfd ? `<span class="mono nw">${esc(r.nfd)}${copyBtn(r.nfd)}</span>` : MISS},
+      {h:'Vol', k:'volumes', n:1, v:r => r.volumes ?? MISS},
+      {h:'UF', k:'uf', v:r => esc(r.uf) || MISS},
+      {h:'Valor NFD', k:'valor_nfd', n:1, v:r => r.valor_nfd == null ? MISS : brl(r.valor_nfd)},
+      {h:'Data dev.', k:'data_devolucao', v:r => r.data_devolucao ? `<span class="nw">${brDate(r.data_devolucao)}</span>` : MISS},
+      {h:'Frete ida', k:'frete_ida', n:1, v:r => freteTxt(r.frete_ida, r.frete_ida_sem)},
+      {h:'Frete rev.', k:'frete_reverso', n:1, v:r => freteTxt(r.frete_reverso, r.frete_reverso_sem)},
+      {h:'Motivo', k:'motivo', v:r => esc(r.motivo) || MISS},
+      {h:'Ocorrência', k:'ocorrencia', v:r => r.ocorrencia ? `<div class="clip2" title="${esc(r.ocorrencia)}">${esc(r.ocorrencia)}</div>` : MISS},
+      {h:'Pedido', k:'pedido', v:r => r.pedido ? `<span class="mono nw">${esc(r.pedido)}${copyBtn(r.pedido)}</span>` : MISS},
+    ],
+    secoes: [
+      ['Da nota fiscal', [
+        {k:'origem', l:'Origem', t:'origem'}, {k:'vendedor', l:'Vendedor', t:'vend'},
+        {k:'nf', l:'Nota fiscal', req:1}, {k:'transportadora', l:'Transportadora', req:1, t:'transp'},
+        {k:'cliente', l:'Cliente (razão social)', req:1, full:1}, {k:'cnpj', l:'CNPJ', req:1, t:'cnpj'},
+        {k:'uf', l:'UF', req:1, t:'uf'}, {k:'valor_nf', l:'Valor da NF', t:'num'}, {k:'cep', l:'CEP', t:'cep'},
+      ]],
+      ['Da devolução', [
+        {k:'nfd', l:'NFD', req:1}, {k:'data_devolucao', l:'Data de devolução', req:1, t:'date'},
+        {k:'valor_nfd', l:'Valor da NFD', req:1, t:'num', hint:'avacyParcial'}, {k:'volumes', l:'Qtd. volumes', req:1, t:'int', hint:'avacyParcial'},
+        {k:'frete_ida', sem:'frete_ida_sem', l:'Frete ida', req:1, t:'frete'}, {k:'frete_reverso', sem:'frete_reverso_sem', l:'Frete reverso', req:1, t:'frete'},
+        {k:'motivo', l:'Motivo', req:1, t:'motivo'}, {k:'pedido', l:'Nº do pedido', req:1},
+        {k:'ocorrencia', l:'Ocorrência', req:1, t:'area', full:1},
+      ]],
+    ],
+    csv: [
+      ['TRANSP.', r => r.transportadora], ['CLIENTE', r => r.cliente], ['CNPJ', r => r.cnpj], ['NF', r => r.nf], ['NFD', r => r.nfd],
+      ['QTD VOL', r => r.volumes], ['UF', r => r.uf], ['VALOR NFD', r => csvNum(r.valor_nfd)], ['DATA DEV', r => brDate(r.data_devolucao)],
+      ['FRETE IDA', r => r.frete_ida_sem ? '-' : csvNum(r.frete_ida)], ['FRETE REVERSO', r => r.frete_reverso_sem ? '-' : csvNum(r.frete_reverso)],
+      ['MOTIVO', r => r.motivo], ['OCORRÊNCIA', r => r.ocorrencia], ['PEDIDO', r => r.pedido],
+    ],
+    kpis: rows => [
+      ['Devoluções', rows.length], ['Valor devolvido', brl(sum(rows, 'valor_nfd'))],
+      ['Frete (ida + reverso)', brl(sum(rows, 'frete_ida') + sum(rows, 'frete_reverso'))],
+    ],
+    doXml: x => {
+      const r = base(x);
+      Object.assign(r, { uf: x.uf, cep: x.cep, transportadora: transpCurta(x.transp), chave_nfe: x.chave,
+        pedido: x.origem === 'Martins' ? x.pedidoMts : x.pedidoAvacy });
+      if(x.origem === 'Martins'){ r.valor_nfd = x.vNF; r.volumes = x.qVol; }   // Martins: devolução sempre total
+      return r;
+    },
+  },
+  adi: {
+    titulo: 'Adicional', novo: '+ Novo adicional', tabela: 'adicionais', dataKey: 'data_autorizacao', lblData: 'Autorização',
+    busca: 'NF, cliente, CNPJ, CEP, motivo',
+    buscaKeys: ['nf','cliente','cnpj','cep','motivo','vendedor'],
+    cols: [
+      {h:'Status', k:'status', v:r => `<span class="st st-${r.status}">${r.status === 'completo' ? 'Completo' : 'Pendente'}</span>`},
+      {h:'Origem', k:'origem', v:r => `<span class="org org-${r.origem}">${esc(r.origem)}</span>${r.origem === 'Avacy' ? `<div class="sub">${esc(r.vendedor||'')}</div>` : ''}`},
+      {h:'Cliente', k:'cliente', v:r => `<div class="clip2">${esc(r.cliente) || MISS}</div><div class="sub nw">${esc(maskCnpj(r.cnpj))}</div>`},
+      {h:'NF', k:'nf', v:r => `<span class="mono nw">${esc(r.nf)}${copyBtn(r.nf)}</span>`},
+      {h:'Valor NF', k:'valor_nf', n:1, v:r => r.valor_nf == null ? MISS : brl(r.valor_nf)},
+      {h:'Valor frete', k:'valor_frete', n:1, v:r => freteTxt(r.valor_frete, r.frete_sem)},
+      {h:'Adicional', k:'valor_adicional', n:1, v:r => r.valor_adicional == null ? MISS : brl(r.valor_adicional)},
+      {h:'Autorizado', k:'data_autorizacao', v:r => r.data_autorizacao ? `<span class="nw">${brDate(r.data_autorizacao)}</span>` : MISS},
+      {h:'Transp.', k:'transportadora', v:r => esc(r.transportadora) || MISS},
+      {h:'CEP', k:'cep', v:r => `<span class="nw">${esc(maskCep(r.cep)) || MISS}</span>`},
+      {h:'Motivo', k:'motivo', v:r => r.motivo ? `<div class="clip2">${esc(r.motivo)}</div>` : MISS},
+    ],
+    secoes: [
+      ['Da nota fiscal', [
+        {k:'origem', l:'Origem', t:'origem'}, {k:'vendedor', l:'Vendedor', t:'vend'},
+        {k:'nf', l:'Nota fiscal', req:1}, {k:'valor_nf', l:'Valor da NF', req:1, t:'num'},
+        {k:'cliente', l:'Cliente (razão social)', req:1, full:1}, {k:'cnpj', l:'CNPJ', t:'cnpj'},
+        {k:'transportadora', l:'Transportadora', t:'transp'}, {k:'cep', l:'CEP', t:'cep'},
+      ]],
+      ['Da autorização', [
+        {k:'valor_frete', sem:'frete_sem', l:'Valor do frete', req:1, t:'frete'}, {k:'valor_adicional', l:'Valor adicional', req:1, t:'num'},
+        {k:'data_autorizacao', l:'Data de autorização', req:1, t:'date'},
+        {k:'motivo', l:'Motivo', req:1, t:'area', full:1},
+      ]],
+    ],
+    csv: [
+      ['CLIENTE', r => r.cliente], ['CNPJ', r => r.cnpj], ['NF', r => r.nf], ['VALOR NF', r => csvNum(r.valor_nf)],
+      ['VALOR FRETE', r => r.frete_sem ? '-' : csvNum(r.valor_frete)], ['VALOR ADICIONAL', r => csvNum(r.valor_adicional)],
+      ['AUTORIZADO', r => brDate(r.data_autorizacao)], ['TRANSP', r => r.transportadora], ['CEP', r => maskCep(r.cep)], ['MOTIVO', r => r.motivo],
+    ],
+    kpis: rows => [['Adicionais', rows.length], ['Valor adicional', brl(sum(rows, 'valor_adicional'))], ['Valor do frete', brl(sum(rows, 'valor_frete'))]],
+    doXml: x => Object.assign(base(x), { cep: x.cep, transportadora: transpCurta(x.transp) }),
+  },
+  des: {
+    titulo: 'Descontos', novo: '+ Novo desconto', tabela: 'descontos', dataKey: 'data_autorizacao', lblData: 'Autorização',
+    busca: 'Pedido, NF, ocorrência',
+    buscaKeys: ['pedido','nf','ocorrencia','vendedor','cliente'],
+    cols: [
+      {h:'Status', k:'status', v:r => `<span class="st st-${r.status}">${r.status === 'completo' ? 'Completo' : 'Pendente'}</span>`},
+      {h:'Origem', k:'origem', v:r => `<span class="org org-${r.origem}">${esc(r.origem)}</span>${r.origem === 'Avacy' ? `<div class="sub">${esc(r.vendedor||'')}</div>` : ''}`},
+      {h:'Tipo', k:'tipo', v:r => esc(r.tipo)},
+      {h:'Pedido', k:'pedido', v:r => r.pedido ? `<span class="mono nw">${esc(r.pedido)}${copyBtn(r.pedido)}</span>` : MISS},
+      {h:'NF', k:'nf', v:r => `<span class="mono nw">${esc(r.nf)}${copyBtn(r.nf)}</span>`},
+      {h:'Motivo', k:'motivo', v:r => esc(r.motivo) || MISS},
+      {h:'Valor', k:'valor', n:1, v:r => r.valor == null ? MISS : brl(r.valor)},
+      {h:'Autorizado', k:'data_autorizacao', v:r => r.data_autorizacao ? `<span class="nw">${brDate(r.data_autorizacao)}</span>` : MISS},
+      {h:'Ocorrência', k:'ocorrencia', v:r => r.ocorrencia ? `<div class="clip2" style="max-width:420px" title="${esc(r.ocorrencia)}">${esc(r.ocorrencia)}</div>` : MISS},
+    ],
+    secoes: [
+      ['Da nota fiscal', [
+        {k:'origem', l:'Origem', t:'origem'}, {k:'vendedor', l:'Vendedor', t:'vend'},
+        {k:'nf', l:'Nota fiscal', req:1}, {k:'pedido', l:'Nº do pedido', req:1},
+      ]],
+      ['Da autorização', [
+        {k:'tipo', l:'Tipo', req:1, t:'tipo'}, {k:'motivo', l:'Motivo', req:1, t:'sel', opts:['Falta','Defeito']},
+        {k:'valor', l:'Valor do desconto', req:1, t:'num'}, {k:'data_autorizacao', l:'Data da autorização', req:1, t:'date'},
+        {k:'ocorrencia', l:'Ocorrência', req:1, t:'area', full:1},
+      ]],
+    ],
+    csv: [
+      ['PEDIDO', r => r.pedido], ['NF', r => r.nf], ['MOTIVO', r => r.motivo], ['VALOR', r => csvNum(r.valor)],
+      ['DATA AUTORIZADA', r => brDate(r.data_autorizacao)], ['OCORRÊNCIA', r => r.ocorrencia],
+    ],
+    csvExtra: rows => rows.some(r => r.origem === 'Avacy') ? [['TIPO', r => r.tipo]] : [],
+    kpis: rows => [['Descontos', rows.length], ['Valor', brl(sum(rows, 'valor'))], ['Falta / Defeito', `${rows.filter(r=>r.motivo==='Falta').length} / ${rows.filter(r=>r.motivo==='Defeito').length}`]],
+    doXml: x => Object.assign(base(x), { pedido: x.origem === 'Martins' ? x.pedidoMts : x.pedidoAvacy, tipo: x.origem === 'Martins' ? 'Desconto' : null }),
+  },
+};
+// campos que cada tabela realmente tem (o que vai para o banco)
+const COLS_DB = {
+  dev: ['origem','vendedor','transportadora','cliente','cnpj','nf','uf','cep','valor_nf','chave_nfe','nfd','volumes','valor_nfd','data_devolucao','frete_ida','frete_ida_sem','frete_reverso','frete_reverso_sem','motivo','ocorrencia','pedido'],
+  adi: ['origem','vendedor','cliente','cnpj','nf','valor_nf','transportadora','cep','valor_frete','frete_sem','valor_adicional','data_autorizacao','motivo'],
+  des: ['origem','vendedor','tipo','pedido','nf','motivo','valor','data_autorizacao','ocorrencia'],
+};
+const base = x => ({ origem: x.origem, vendedor: x.vendedor, cliente: x.cliente, cnpj: x.cnpj, nf: x.nf, valor_nf: x.vNF });
+const sum = (rows, k) => rows.reduce((a, r) => a + (Number(r[k]) || 0), 0);
+const csvNum = v => v == null ? '' : Number(v).toFixed(2).replace('.', ',');
+
+// ---------- estado ----------
+const S = { tab: ['dev','adi','des'].includes(ls.get('dev_tab')) ? ls.get('dev_tab') : 'dev', data: {dev:null, adi:null, des:null},
+            motivos: [], sort: {}, open: null, isNew: false, mute: 0 };
+
+// ---------- toast ----------
+let toastT;
+function toast(msg, kind=''){ const t = $('#toast'); t.textContent = msg; t.className = 'toast ' + kind; t.style.display = 'block'; clearTimeout(toastT); toastT = setTimeout(() => t.style.display = 'none', 3500); }
+
+// ---------- leitura do banco ----------
+async function fetchAll(tab){
+  const out = [];
+  for(let from = 0; ; from += 1000){
+    const { data, error } = await sb.from(T(TABS[tab].tabela)).select('*').order('created_at').range(from, from + 999);
+    if(error) throw error;
+    out.push(...data);
+    if(data.length < 1000) break;
+  }
+  return out;
+}
+async function load(tab, force){
+  if(S.data[tab] && !force) return;
+  $('#rows').innerHTML = `<tr><td class="empty" colspan="20">Carregando…</td></tr>`;
+  try { S.data[tab] = await fetchAll(tab); }
+  catch(e){ console.error(e); $('#rows').innerHTML = `<tr><td class="empty" colspan="20">Não consegui ler o banco (${esc(e.message)}). Confira se o SQL foi rodado.</td></tr>`; throw e; }
+}
+async function loadMotivos(){
+  const { data, error } = await sb.from(T('motivos')).select('*').order('ordem');
+  if(!error) S.motivos = data;
+}
+
+// ---------- filtros ----------
+const F = () => ({ busca: $('#fBusca').value.trim().toLowerCase(), origem: $('#fOrigem').value, vend: $('#fVend').value, status: $('#fStatus').value,
+                   motivo: $('#fMotivo').value, tipo: $('#fTipo').value, transp: $('#fTransp').value, de: $('#fDe').value, ate: $('#fAte').value });
+function filtered(){
+  const cfg = TABS[S.tab], f = F(), rows = S.data[S.tab] || [];
+  const bd = dig(f.busca);
+  return rows.filter(r => {
+    if(f.origem && r.origem !== f.origem) return false;
+    if(f.vend && (r.vendedor || '') !== f.vend) return false;
+    if(f.status && r.status !== f.status) return false;
+    if(f.motivo && S.tab !== 'adi' && (f.motivo === '__vazio' ? r.motivo : r.motivo !== f.motivo)) return false;
+    if(f.tipo && S.tab === 'des' && r.tipo !== f.tipo) return false;
+    if(f.transp && S.tab !== 'des' && (r.transportadora || '') !== f.transp) return false;
+    const d = r[cfg.dataKey];
+    if(f.de && (!d || d < f.de)) return false;
+    if(f.ate && (!d || d > f.ate)) return false;
+    if(f.busca){
+      const hit = cfg.buscaKeys.some(k => {
+        const v = String(r[k] ?? '').toLowerCase();
+        return v.includes(f.busca) || (bd.length >= 3 && dig(v).includes(bd) && /^\d[\d.\-\/\s]*$/.test(f.busca));
+      });
+      if(!hit) return false;
+    }
+    return true;
+  });
+}
+function sorted(rows){
+  const s = S.sort[S.tab];
+  const cfg = TABS[S.tab];
+  const out = rows.slice();
+  if(!s){ // padrão: pendentes primeiro, depois data mais recente
+    return out.sort((a, b) => (a.status === 'pendente' ? 0 : 1) - (b.status === 'pendente' ? 0 : 1)
+      || String(b[cfg.dataKey] || '9999').localeCompare(String(a[cfg.dataKey] || '9999')) || String(b.created_at).localeCompare(String(a.created_at)));
+  }
+  const num = cfg.cols.find(c => c.k === s.k)?.n;
+  return out.sort((a, b) => {
+    let x = a[s.k], y = b[s.k];
+    if(x == null && y == null) return 0; if(x == null) return 1; if(y == null) return -1;
+    const c = num ? Number(x) - Number(y) : String(x).localeCompare(String(y), 'pt-BR', {numeric:true});
+    return s.dir * c;
+  });
+}
+function fillSelect(sel, values, all='Todos', keep=true){
+  const cur = sel.value;
+  sel.innerHTML = `<option value="">${all}</option>` + values.map(v => `<option value="${esc(v)}">${esc(v)}</option>`).join('');
+  if(keep && values.includes(cur)) sel.value = cur;
+}
+function refreshFilterOptions(){
+  const rows = S.data[S.tab] || [];
+  const uniq = k => [...new Set(rows.map(r => r[k]).filter(Boolean))].sort((a,b) => a.localeCompare(b, 'pt-BR'));
+  fillSelect($('#fVend'), uniq('vendedor'));
+  fillSelect($('#fTransp'), uniq('transportadora'), 'Todas');
+  if(S.tab === 'dev'){
+    fillSelect($('#fMotivo'), S.motivos.map(m => m.nome));
+    $('#fMotivo').insertAdjacentHTML('beforeend', '<option value="__vazio">(sem motivo)</option>');
+  } else if(S.tab === 'des') fillSelect($('#fMotivo'), ['Falta','Defeito']);
+  const allRows = Object.values(S.data).flat().filter(Boolean);
+  $('#dlVend').innerHTML = [...new Set(allRows.map(r => r.vendedor).filter(Boolean))].sort().map(v => `<option value="${esc(v)}">`).join('');
+  $('#dlTransp').innerHTML = [...new Set(allRows.map(r => r.transportadora).filter(Boolean))].sort().map(v => `<option value="${esc(v)}">`).join('');
+}
+
+// ---------- render ----------
+function render(){
+  const cfg = TABS[S.tab];
+  const rows = sorted(filtered());
+  const all = S.data[S.tab] || [];
+  // KPIs
+  const pend = rows.filter(r => r.status === 'pendente').length;
+  $('#kpis').innerHTML = cfg.kpis(rows).map(([k, v]) => `<div class="kpi"><div class="k">${k}</div><div class="v">${v}</div></div>`).join('')
+    + `<div class="kpi pend click" id="kPend" title="Mostrar só os pendentes"><div class="k">Pendentes</div><div class="v">${pend}</div></div>`;
+  $('#kPend').onclick = () => { $('#fStatus').value = 'pendente'; render(); };
+  // cabeçalho
+  const s = S.sort[S.tab];
+  $('#thead').innerHTML = '<tr>' + cfg.cols.map(c => `<th class="${c.n ? 'n' : ''}" data-k="${c.k}">${c.h}${s && s.k === c.k ? ` <span class="ar">${s.dir > 0 ? '▲' : '▼'}</span>` : ''}</th>`).join('') + '</tr>';
+  $('#count').textContent = `${rows.length} de ${all.length} registros` + (s ? '' : ' · pendentes primeiro, depois os mais recentes');
+  $('#rows').innerHTML = rows.length
+    ? rows.map(r => `<tr data-id="${r.id}">` + cfg.cols.map(c => `<td class="${c.n ? 'n' : ''}">${c.v(r)}</td>`).join('') + '</tr>').join('')
+    : `<tr><td class="empty" colspan="${cfg.cols.length}">Nenhum registro com esses filtros.</td></tr>`;
+}
+function setupTabUI(){
+  const cfg = TABS[S.tab];
+  $$('#tabs button').forEach(b => b.classList.toggle('on', b.dataset.tab === S.tab));
+  $('#btnNovo').textContent = cfg.novo;
+  $('#fBusca').placeholder = cfg.busca;
+  $('#lDe').textContent = cfg.lblData + ' de';
+  $('#wMotivo').style.display = S.tab === 'adi' ? 'none' : '';
+  $('#wTipo').style.display = S.tab === 'des' ? '' : 'none';
+  $('#wTransp').style.display = S.tab === 'des' ? 'none' : '';
+  $('#upTitle').textContent = cfg.novo.replace('+ ', '');
+}
+async function showTab(tab){
+  S.tab = tab; ls.set('dev_tab', tab);
+  setupTabUI();
+  ['#fMotivo','#fTipo','#fTransp'].forEach(id => $(id).value = '');
+  await load(tab);
+  refreshFilterOptions(); render();
+}
+
+// ---------- drawer (ver / editar) ----------
+function fieldHTML(f, r){
+  const v = r[f.k];
+  const id = 'e_' + f.k;
+  const val = esc(v ?? '');
+  let input;
+  switch(f.t){
+    case 'origem': input = `<select id="${id}"><option ${v==='Martins'?'selected':''}>Martins</option><option ${v==='Avacy'?'selected':''}>Avacy</option></select>`; break;
+    case 'vend': input = `<input id="${id}" value="${val}" list="dlVend">`; break;
+    case 'transp': input = `<input id="${id}" value="${val}" list="dlTransp">`; break;
+    case 'date': input = `<input type="date" id="${id}" value="${v ? v.slice(0,10) : ''}">`; break;
+    case 'num': input = `<input type="text" inputmode="decimal" id="${id}" value="${v == null ? '' : brNum(v)}" placeholder="0,00">`; break;
+    case 'int': input = `<input type="text" inputmode="numeric" id="${id}" value="${v ?? ''}">`; break;
+    case 'cnpj': input = `<input id="${id}" value="${esc(maskCnpj(v))}" inputmode="numeric">`; break;
+    case 'cep': input = `<input id="${id}" value="${esc(maskCep(v))}" inputmode="numeric">`; break;
+    case 'uf': input = `<input id="${id}" value="${val}" maxlength="2" style="text-transform:uppercase">`; break;
+    case 'area': input = `<textarea id="${id}">${val}</textarea>`; break;
+    case 'frete': input = `<div class="frete"><input type="text" inputmode="decimal" id="${id}" value="${v == null ? '' : brNum(v)}" placeholder="0,00" ${r[f.sem] ? 'disabled' : ''}>
+        <label class="chk"><input type="checkbox" id="e_${f.sem}" ${r[f.sem] ? 'checked' : ''}> Sem frete</label></div>`; break;
+    case 'motivo': {
+      const ops = S.motivos.filter(m => m.ativo || m.nome === v).map(m => m.nome);
+      input = `<select id="${id}"><option value="">Escolha…</option>${ops.map(o => `<option ${o===v?'selected':''}>${esc(o)}</option>`).join('')}</select>`; break;
+    }
+    case 'sel': input = `<select id="${id}"><option value="">Escolha…</option>${f.opts.map(o => `<option ${o===v?'selected':''}>${o}</option>`).join('')}</select>`; break;
+    case 'tipo': input = `<select id="${id}"></select>`; break;
+    default: input = `<input id="${id}" value="${val}">`;
+  }
+  let hint = '';
+  if(f.hint === 'avacyParcial') hint = `<div class="ref" data-hint="${f.k}"></div>`;
+  return `<div class="f ${f.full ? 'full' : ''} ${f.req ? 'req' : ''}" data-f="${f.k}">${f.l ? `<label for="${id}">${f.l}</label>` : ''}${input}${hint}</div>`;
+}
+function openDrawer(r, isNew=false){
+  const cfg = TABS[S.tab];
+  S.open = r; S.isNew = isNew;
+  $('#dTitle').innerHTML = isNew
+    ? `Novo registro · ${cfg.titulo}`
+    : `NF ${esc(r.nf)} <span class="st st-${r.status}">${r.status === 'completo' ? 'Completo' : 'Pendente'}</span> <span class="org org-${r.origem}">${esc(r.origem)}</span>`;
+  $('#dBody').innerHTML = cfg.secoes.map(([t, fs]) => `<h4>${t}</h4><div class="grid2">${fs.map(f => fieldHTML(f, r)).join('')}</div>`).join('')
+    + (isNew ? '' : `<div class="meta">Criado em ${new Date(r.created_at).toLocaleString('pt-BR')} · última alteração ${new Date(r.updated_at).toLocaleString('pt-BR')}${r.importado ? ' · importado da planilha' : ''}</div>`);
+  $('#dDel').style.display = isNew ? 'none' : '';
+  // comportamentos
+  $$('#dBody .frete input[type=checkbox]').forEach(cb => cb.onchange = () => { const inp = cb.closest('.frete').querySelector('input[type=text]'); inp.disabled = cb.checked; if(cb.checked) inp.value = ''; markEmpty(); });
+  const org = $('#e_origem');
+  const sync = () => {
+    if($('#e_tipo')){
+      const o = org.value === 'Martins' ? ['Desconto'] : ['NCC','Abatimento','Ressarcimento'];
+      const cur = $('#e_tipo').value || r.tipo;
+      $('#e_tipo').innerHTML = (o.length > 1 ? '<option value="">Escolha…</option>' : '') + o.map(x => `<option ${x===cur?'selected':''}>${x}</option>`).join('');
+    }
+    $$('#dBody [data-hint]').forEach(h => h.textContent = org.value === 'Avacy' ? 'Avacy: informe o que realmente voltou (pode ser parcial).' + (h.dataset.hint === 'valor_nfd' && r.valor_nf ? ` NF inteira: ${brl(r.valor_nf)}` : '') : '');
+    if(org.value === 'Martins' && !$('#e_vendedor').value) $('#e_vendedor').value = 'MARTINS';
+  };
+  org.onchange = sync; sync();
+  $('#dBody').oninput = markEmpty; $('#dBody').onchange = markEmpty; markEmpty();
+  $('#ov').classList.add('show'); $('#drawer').classList.add('show');
+}
+function markEmpty(){
+  $$('#dBody .f.req').forEach(w => {
+    const el = w.querySelector('input:not([type=checkbox]),select,textarea');
+    const cb = w.querySelector('input[type=checkbox]');
+    w.classList.toggle('empty-req', !(cb && cb.checked) && !String(el.value).trim());
+  });
+}
+function closeDrawer(){ $('#ov').classList.remove('show'); $('#drawer').classList.remove('show'); S.open = null; }
+function readForm(){
+  const cfg = TABS[S.tab], o = {};
+  for(const [, fs] of cfg.secoes) for(const f of fs){
+    const el = $('#e_' + f.k); if(!el) continue;
+    let v = el.value.trim();
+    switch(f.t){
+      case 'num': case 'frete': { if(f.t === 'frete'){ o[f.sem] = $('#e_' + f.sem).checked; if(o[f.sem]){ o[f.k] = null; continue; } }
+        const n = parseNum(v); if(Number.isNaN(n)) throw `Valor inválido em "${f.l}"`; o[f.k] = n; continue; }
+      case 'int': o[f.k] = v === '' ? null : parseInt(dig(v), 10); continue;
+      case 'cnpj': case 'cep': o[f.k] = dig(v) || null; continue;
+      case 'uf': o[f.k] = v.toUpperCase() || null; continue;
+      case 'transp': case 'vend': o[f.k] = v.toUpperCase() || null; continue;
+      case 'date': o[f.k] = v || null; continue;
+      default: o[f.k] = v || null;
+    }
+  }
+  o.nf = dig(o.nf) || o.nf;
+  if(!o.nf) throw 'Informe a nota fiscal.';
+  if(o.nfd !== undefined) o.nfd = dig(o.nfd) || null;
+  if(o.origem === 'Martins' && !o.vendedor) o.vendedor = 'MARTINS';
+  return o;
+}
+async function save(){
+  let o;
+  try { o = readForm(); } catch(m){ toast(m, 'bad'); return; }
+  const btn = $('#dSave'); btn.disabled = true;
+  S.mute = Date.now() + 4000;
+  try {
+    let res;
+    if(S.isNew) res = await sb.from(T(TABS[S.tab].tabela)).insert(o).select().single();
+    else res = await sb.from(T(TABS[S.tab].tabela)).update(o).eq('id', S.open.id).select().single();
+    if(res.error) throw res.error;
+    upsertLocal(res.data);
+    toast(res.data.status === 'completo' ? 'Salvo. Registro completo ✔' : 'Salvo. Ainda há campos pendentes.', 'ok');
+    closeDrawer(); refreshFilterOptions(); render();
+  } catch(e){ toast(errMsg(e), 'bad'); }
+  finally { btn.disabled = false; }
+}
+function upsertLocal(row, tab=S.tab){
+  const arr = S.data[tab]; if(!arr) return;
+  const i = arr.findIndex(x => x.id === row.id);
+  if(i >= 0) arr[i] = row; else arr.push(row);
+}
+function errMsg(e){
+  if(e?.code === '23505') return 'Já existe um registro com essa NF e essa NFD.';
+  if(e?.code === '23514') return 'Combinação inválida (confira origem e tipo).';
+  if(e?.code === '23503') return 'Motivo não cadastrado.';
+  return 'Erro ao salvar: ' + (e?.message || e);
+}
+function askDelete(){
+  const r = S.open;
+  $('#cfTitle').textContent = 'Excluir registro?';
+  $('#cfText').textContent = `NF ${r.nf}${r.nfd ? ' / NFD ' + r.nfd : ''} · ${r.cliente || ''}. Essa ação não pode ser desfeita.`;
+  $('#cfModal').classList.add('show');
+}
+async function doDelete(){
+  $('#cfModal').classList.remove('show');
+  S.mute = Date.now() + 4000;
+  const { error } = await sb.from(T(TABS[S.tab].tabela)).delete().eq('id', S.open.id);
+  if(error){ toast(errMsg(error), 'bad'); return; }
+  S.data[S.tab] = S.data[S.tab].filter(x => x.id !== S.open.id);
+  closeDrawer(); render(); toast('Registro excluído.', 'ok');
+}
+
+// ---------- XML da NF-e ----------
+function parseNFe(text){
+  const doc = new DOMParser().parseFromString(text, 'application/xml');
+  if(doc.getElementsByTagName('parsererror').length) throw 'Arquivo não é um XML válido.';
+  const inf = doc.getElementsByTagNameNS('*', 'infNFe')[0];
+  if(!inf) throw 'Não encontrei uma NF-e neste XML.';
+  const one = (p, tag) => p ? p.getElementsByTagNameNS('*', tag)[0] : null;
+  const tx = (p, tag) => { const e = one(p, tag); return e ? e.textContent.trim() : null; };
+  const ide = one(inf, 'ide'), dest = one(inf, 'dest'), ender = one(dest, 'enderDest'), tot = one(inf, 'ICMSTot'), transp = one(inf, 'transp');
+  const vols = transp ? [...transp.getElementsByTagNameNS('*', 'vol')] : [];
+  const qVol = vols.reduce((a, v) => a + (parseInt(tx(v, 'qVol')) || 0), 0) || null;
+  const cpl = tx(inf, 'infCpl') || '';
+  const vendedor = (cpl.match(/Vendedor:\s*([^,;\n]+)/i) || [])[1]?.trim().toUpperCase() || null;
+  const pedidoMts = (cpl.match(/Pedido\s*\(MTS\)\s*:\s*([^\s,;]+)/i) || [])[1] || null;
+  const pedidoAvacy = (cpl.match(/Pedido\s*:\s*([^\s,;]+)/i) || [])[1] || null;
+  const vNF = tx(tot, 'vNF');
+  return {
+    nf: String(parseInt(tx(ide, 'nNF'), 10)), emissao: (tx(ide, 'dhEmi') || '').slice(0,10),
+    cliente: tx(dest, 'xNome'), cnpj: tx(dest, 'CNPJ') || tx(dest, 'CPF'),
+    uf: tx(ender, 'UF'), cep: tx(ender, 'CEP'), vNF: vNF ? Number(vNF) : null,
+    transp: tx(one(transp, 'transporta'), 'xNome'), qVol,
+    vendedor, origem: vendedor === 'MARTINS' ? 'Martins' : 'Avacy', pedidoMts, pedidoAvacy,
+    chave: (inf.getAttribute('Id') || '').replace(/^NFe/, '') || null,
+    emit: tx(one(inf, 'emit'), 'xNome'),
+  };
+}
+function openUpload(){ $('#upRes').innerHTML = ''; $('#xmlIn').value = ''; $('#upModal').classList.add('show'); }
+async function handleFiles(files){
+  const cfg = TABS[S.tab], tbl = T(cfg.tabela);
+  for(const file of files){
+    const item = document.createElement('div');
+    item.className = 'ri'; item.innerHTML = `<span class="ic">…</span><div class="t"><div>${esc(file.name)}</div><div class="sub">Lendo…</div></div>`;
+    $('#upRes').prepend(item);
+    const set = (kind, title, sub, row) => {
+      item.className = 'ri ' + kind;
+      item.innerHTML = `<span class="ic">${kind === 'ok' ? '✔' : kind === 'warn' ? '!' : '✖'}</span><div class="t"><div>${title}</div><div class="sub">${sub}</div></div>`
+        + (row ? `<button class="btn">Completar</button>` : '');
+      if(row) item.querySelector('button').onclick = () => { $('#upModal').classList.remove('show'); openDrawer(row); };
+    };
+    try {
+      const x = parseNFe(await file.text());
+      const nome = `NF ${esc(x.nf)} · ${esc(x.cliente || '')}`;
+      const quem = x.origem === 'Martins' ? 'Martins' : `Avacy · ${esc(x.vendedor || 'vendedor não identificado')}`;
+      // já existe?
+      const existentes = (S.data[S.tab] || []).filter(r => r.nf === x.nf);
+      if(S.tab === 'dev' && x.origem === 'Martins' && existentes.length){
+        set('warn', nome, `Essa NF já está cadastrada (Martins é sempre devolução total).`, existentes[0]); continue;
+      }
+      if(S.tab === 'dev' && existentes.some(r => !r.nfd)){
+        set('warn', nome, `Já existe uma devolução desta NF sem NFD. Complete a NFD dela antes de lançar outra.`, existentes.find(r => !r.nfd)); continue;
+      }
+      if(S.tab !== 'dev' && existentes.length){
+        set('warn', nome, `Já existe ${existentes.length > 1 ? existentes.length + ' registros' : 'um registro'} com essa NF nesta aba. Nada foi criado.`, existentes[0]); continue;
+      }
+      const o = cfg.doXml(x);
+      if(S.tab === 'des' && x.origem === 'Avacy'){ // Avacy: backoffice escolhe NCC, Abatimento ou Ressarcimento antes de gravar
+        const novo = Object.fromEntries(Object.entries(o).filter(([k]) => COLS_DB.des.includes(k)));
+        set('warn', nome, `${quem}. Escolha o tipo (NCC, Abatimento ou Ressarcimento) e salve.`);
+        item.insertAdjacentHTML('beforeend', '<button class="btn">Preencher</button>');
+        item.querySelector('button').onclick = () => { $('#upModal').classList.remove('show'); openDrawer(novo, true); };
+        if(files.length === 1){ $('#upModal').classList.remove('show'); openDrawer(novo, true); }
+        continue;
+      }
+      const clean = Object.fromEntries(Object.entries(o).filter(([k]) => COLS_DB[S.tab].includes(k)));
+      S.mute = Date.now() + 4000;
+      const { data, error } = await sb.from(tbl).insert(clean).select().single();
+      if(error) throw errMsg(error);
+      upsertLocal(data);
+      const falta = x.origem === 'Avacy' && S.tab === 'dev' ? 'Avacy: informe valor e volumes que voltaram.' : 'Complete os campos manuais.';
+      set('ok', nome, `${quem} · ${esc(x.transp || '')} · ${brl(x.vNF)}. ${falta}`, data);
+      if(files.length === 1){ $('#upModal').classList.remove('show'); openDrawer(data); toast('Dados da nota preenchidos. Complete o restante.', 'ok'); }
+    } catch(e){ set('bad', esc(file.name), esc(typeof e === 'string' ? e : (e.message || e))); }
+  }
+  refreshFilterOptions(); render();
+}
+function novoManual(){
+  $('#upModal').classList.remove('show');
+  const r = S.tab === 'des' ? { origem:'Martins', vendedor:'MARTINS', tipo:'Desconto' } : { origem:'Martins', vendedor:'MARTINS' };
+  openDrawer(r, true);
+}
+
+// ---------- CSV ----------
+function baixarCsv(){
+  const cfg = TABS[S.tab];
+  const rows = sorted(filtered());
+  if(!rows.length){ toast('Nada para baixar com esses filtros.', 'bad'); return; }
+  const cols = cfg.csv.concat(cfg.csvExtra ? cfg.csvExtra(rows) : []);
+  const cell = v => { v = v == null ? '' : String(v); return /[;"\n\r]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v; };
+  const lines = [cols.map(c => c[0]).join(';')].concat(rows.map(r => cols.map(c => cell(c[1](r))).join(';')));
+  const f = F();
+  const per = f.de || f.ate ? `_${(f.de || 'inicio')}_a_${(f.ate || 'hoje')}` : '';
+  const blob = new Blob(['﻿' + lines.join('\r\n')], {type: 'text/csv;charset=utf-8'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `${cfg.titulo.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')}${f.origem ? '_' + f.origem.toLowerCase() : ''}${per}.csv`;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+  toast(`${rows.length} registros baixados.`, 'ok');
+}
+
+// ---------- tempo real (aviso silencioso) ----------
+function realtime(){
+  const ch = sb.channel('dev-' + CONFIG.PREFIX);
+  ['dev','adi','des'].forEach(tab => ch.on('postgres_changes', {event:'*', schema:'public', table: T(TABS[tab].tabela)}, () => {
+    if(Date.now() < S.mute) return;
+    S.stale = S.stale || new Set(); S.stale.add(tab);
+    if(tab === S.tab) $('#banner').classList.add('show');
+    else S.data[tab] = null; // recarrega quando abrir a aba
+  }));
+  ch.subscribe();
+}
+
+// ---------- eventos ----------
+$('#tabs').onclick = e => { const b = e.target.closest('button'); if(b) showTab(b.dataset.tab); };
+['#fBusca'].forEach(id => $(id).oninput = render);
+['#fOrigem','#fVend','#fStatus','#fMotivo','#fTipo','#fTransp','#fDe','#fAte'].forEach(id => $(id).onchange = render);
+$('#btnLimpar').onclick = () => { $$('#bar input, #bar select').forEach(el => el.value = ''); S.sort[S.tab] = null; render(); };
+$('#thead').onclick = e => {
+  const th = e.target.closest('th'); if(!th) return;
+  const k = th.dataset.k, s = S.sort[S.tab];
+  S.sort[S.tab] = !s || s.k !== k ? {k, dir: 1} : s.dir === 1 ? {k, dir: -1} : null;
+  render();
+};
+$('#rows').onclick = e => {
+  const cp = e.target.closest('.cp');
+  if(cp){ e.stopPropagation(); navigator.clipboard?.writeText(cp.dataset.copy).then(() => toast('Copiado: ' + cp.dataset.copy, 'ok')); return; }
+  const tr = e.target.closest('tr[data-id]'); if(!tr) return;
+  const r = S.data[S.tab].find(x => x.id === tr.dataset.id); if(r) openDrawer(r);
+};
+$('#btnNovo').onclick = openUpload;
+$('#upClose').onclick = () => $('#upModal').classList.remove('show');
+$('#upManual').onclick = novoManual;
+$('#xmlIn').onchange = e => handleFiles([...e.target.files]);
+const drop = $('#drop');
+drop.ondragover = e => { e.preventDefault(); drop.classList.add('over'); };
+drop.ondragleave = () => drop.classList.remove('over');
+drop.ondrop = e => { e.preventDefault(); drop.classList.remove('over'); handleFiles([...e.dataTransfer.files].filter(f => /\.xml$/i.test(f.name))); };
+$('#dClose').onclick = closeDrawer; $('#dCancel').onclick = closeDrawer; $('#ov').onclick = closeDrawer;
+$('#dSave').onclick = save; $('#dDel').onclick = askDelete;
+$('#cfNo').onclick = () => $('#cfModal').classList.remove('show'); $('#cfYes').onclick = doDelete;
+$('#btnCsv').onclick = baixarCsv;
+$('#banner').onclick = async () => { $('#banner').classList.remove('show'); await load(S.tab, true); refreshFilterOptions(); render(); };
+document.addEventListener('keydown', e => {
+  if(e.key === 'Escape'){ if($('#cfModal').classList.contains('show')) $('#cfModal').classList.remove('show'); else if($('#upModal').classList.contains('show')) $('#upModal').classList.remove('show'); else closeDrawer(); }
+  if(e.key === 's' && (e.ctrlKey || e.metaKey) && S.open){ e.preventDefault(); save(); }
+});
+
+// ---------- início ----------
+$('#env').textContent = CONFIG.AMBIENTE;
+document.title = (CONFIG.AMBIENTE ? '[HML] ' : '') + 'Devoluções Avacy';
+(async () => {
+  await loadMotivos();
+  await showTab(S.tab);
+  realtime();
+})();
+</script>
+</body>
+</html>
