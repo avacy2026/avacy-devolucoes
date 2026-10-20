@@ -143,7 +143,7 @@ h4:first-child{margin-top:0}
     <div class="f"><label>Vendedor</label><select id="fVend"></select></div>
     <div class="f"><label>Status</label><select id="fStatus"><option value="">Todos</option><option value="pendente">Pendente</option><option value="completo">Completo</option></select></div>
     <div class="f" id="wMotivo"><label>Motivo</label><select id="fMotivo"></select></div>
-    <div class="f" id="wTipo"><label>Tipo</label><select id="fTipo"><option value="">Todos</option><option>Desconto</option><option>NCC</option><option>Abatimento</option><option>Ressarcimento</option></select></div>
+    <div class="f" id="wTipo"><label>Tipo</label><select id="fTipo"><option value="">Todos</option><option>Desconto</option><option>NCC</option><option>NCC Manual</option><option>Abatimento</option><option>Ressarcimento</option></select></div>
     <div class="f" id="wTransp"><label>Transportadora</label><select id="fTransp"></select></div>
     <div class="f"><label id="lDe">De</label><input type="date" id="fDe"></div>
     <div class="f"><label>Até</label><input type="date" id="fAte"></div>
@@ -339,14 +339,15 @@ const TABS = {
   },
   des: {
     titulo: 'Descontos', novo: '+ Novo desconto', tabela: 'descontos', dataKey: 'data_autorizacao', lblData: 'Autorização',
-    busca: 'Pedido, NF, ocorrência',
-    buscaKeys: ['pedido','nf','ocorrencia','vendedor','cliente'],
+    busca: 'Pedido, NF, código do cliente, ocorrência',
+    buscaKeys: ['pedido','nf','codigo_cliente','ocorrencia','vendedor','cliente'],
     cols: [
       {h:'Status', k:'status', v:r => `<span class="st st-${r.status}">${r.status === 'completo' ? 'Completo' : 'Pendente'}</span>`},
       {h:'Origem', k:'origem', v:r => `<span class="org org-${r.origem}">${esc(r.origem)}</span>${r.origem === 'Avacy' ? `<div class="sub">${esc(r.vendedor||'')}</div>` : ''}`},
       {h:'Tipo', k:'tipo', v:r => esc(r.tipo)},
       {h:'Pedido', k:'pedido', v:r => r.pedido ? `<span class="mono nw">${esc(r.pedido)}${copyBtn(r.pedido)}</span>` : MISS},
       {h:'NF', k:'nf', v:r => `<span class="mono nw">${esc(r.nf)}${copyBtn(r.nf)}</span>`},
+      {h:'Cód. cliente', k:'codigo_cliente', v:r => r.codigo_cliente ? `<span class="mono nw">${esc(r.codigo_cliente)}${copyBtn(r.codigo_cliente)}</span>` : MISS},
       {h:'Motivo', k:'motivo', v:r => esc(r.motivo) || MISS},
       {h:'Valor', k:'valor', n:1, v:r => r.valor == null ? MISS : brl(r.valor)},
       {h:'Autorizado', k:'data_autorizacao', v:r => r.data_autorizacao ? `<span class="nw">${brDate(r.data_autorizacao)}</span>` : MISS},
@@ -356,6 +357,7 @@ const TABS = {
       ['Da nota fiscal', [
         {k:'origem', l:'Origem', t:'origem'}, {k:'vendedor', l:'Vendedor', t:'vend'},
         {k:'nf', l:'Nota fiscal', req:1}, {k:'pedido', l:'Nº do pedido', req:1},
+        {k:'codigo_cliente', l:'Código do cliente'},
       ]],
       ['Da autorização', [
         {k:'tipo', l:'Tipo', req:1, t:'tipo'}, {k:'motivo', l:'Motivo', req:1, t:'sel', opts:['Falta','Defeito']},
@@ -364,7 +366,7 @@ const TABS = {
       ]],
     ],
     csv: [
-      ['PEDIDO', r => r.pedido], ['NF', r => r.nf], ['MOTIVO', r => r.motivo], ['VALOR', r => csvNum(r.valor)],
+      ['PEDIDO', r => r.pedido], ['NF', r => r.nf], ['CÓDIGO CLIENTE', r => r.codigo_cliente], ['MOTIVO', r => r.motivo], ['VALOR', r => csvNum(r.valor)],
       ['DATA AUTORIZADA', r => brDate(r.data_autorizacao)], ['OCORRÊNCIA', r => r.ocorrencia],
     ],
     csvExtra: rows => rows.some(r => r.origem === 'Avacy') ? [['TIPO', r => r.tipo]] : [],
@@ -376,7 +378,7 @@ const TABS = {
 const COLS_DB = {
   dev: ['origem','vendedor','transportadora','cliente','cnpj','nf','uf','cep','valor_nf','chave_nfe','nfd','volumes','valor_nfd','data_devolucao','frete_ida','frete_ida_sem','frete_reverso','frete_reverso_sem','motivo','ocorrencia','pedido'],
   adi: ['origem','vendedor','cliente','cnpj','nf','valor_nf','transportadora','cep','valor_frete','frete_sem','valor_adicional','data_autorizacao','motivo'],
-  des: ['origem','vendedor','tipo','pedido','nf','motivo','valor','data_autorizacao','ocorrencia'],
+  des: ['origem','vendedor','tipo','pedido','nf','codigo_cliente','motivo','valor','data_autorizacao','ocorrencia'],
 };
 const base = x => ({ origem: x.origem, vendedor: x.vendedor, cliente: x.cliente, cnpj: x.cnpj, nf: x.nf, valor_nf: x.vNF });
 const sum = (rows, k) => rows.reduce((a, r) => a + (Number(r[k]) || 0), 0);
@@ -555,7 +557,7 @@ function openDrawer(r, isNew=false){
   const org = $('#e_origem');
   const sync = () => {
     if($('#e_tipo')){
-      const o = org.value === 'Martins' ? ['Desconto'] : ['NCC','Abatimento','Ressarcimento'];
+      const o = org.value === 'Martins' ? ['Desconto'] : ['NCC','NCC Manual','Abatimento','Ressarcimento'];
       const cur = $('#e_tipo').value || r.tipo;
       $('#e_tipo').innerHTML = (o.length > 1 ? '<option value="">Escolha…</option>' : '') + o.map(x => `<option ${x===cur?'selected':''}>${x}</option>`).join('');
     }
@@ -695,7 +697,7 @@ async function handleFiles(files){
       const o = cfg.doXml(x);
       if(S.tab === 'des' && x.origem === 'Avacy'){ // Avacy: backoffice escolhe NCC, Abatimento ou Ressarcimento antes de gravar
         const novo = Object.fromEntries(Object.entries(o).filter(([k]) => COLS_DB.des.includes(k)));
-        set('warn', nome, `${quem}. Escolha o tipo (NCC, Abatimento ou Ressarcimento) e salve.`);
+        set('warn', nome, `${quem}. Escolha o tipo (NCC, NCC Manual, Abatimento ou Ressarcimento) e salve.`);
         item.insertAdjacentHTML('beforeend', '<button class="btn">Preencher</button>');
         item.querySelector('button').onclick = () => { $('#upModal').classList.remove('show'); openDrawer(novo, true); };
         if(files.length === 1){ $('#upModal').classList.remove('show'); openDrawer(novo, true); }
