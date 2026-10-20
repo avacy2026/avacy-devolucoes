@@ -102,9 +102,10 @@ h4:first-child{margin-top:0}
 .box h3{margin:0 0 6px;font-size:18px}
 .box .sub{margin-bottom:16px}
 .foot{display:flex;justify-content:flex-end;gap:8px;margin-top:18px;align-items:center}
-.drop{border:2px dashed var(--line);border-radius:12px;padding:30px 16px;text-align:center;color:var(--mute);cursor:pointer;transition:all .2s}
+.drop{display:block;width:100%;border:2px dashed var(--line);border-radius:12px;padding:30px 16px;text-align:center;color:var(--mute);cursor:pointer;transition:all .2s}
 .drop:hover,.drop.over{border-color:var(--roxo-light);background:rgba(124,58,237,.08);color:var(--ink)}
 .drop b{color:var(--roxo-light)}
+.drop small{display:block;margin-top:6px;color:var(--dim);font-size:12px}
 .res{display:flex;flex-direction:column;gap:8px;margin-top:14px}
 .res:empty{display:none}
 .ri{display:flex;gap:10px;align-items:flex-start;background:var(--input);border:1px solid var(--line);border-radius:10px;padding:10px 12px;font-size:13px}
@@ -175,7 +176,7 @@ h4:first-child{margin-top:0}
     <div class="sub">Envie o XML da nota fiscal. Os dados da nota são preenchidos sozinhos; o resto você completa em seguida.</div>
     <label class="drop" id="drop">
       <input type="file" id="xmlIn" accept=".xml,text/xml" multiple hidden>
-      Arraste os XMLs aqui ou <b>clique para escolher</b><br><small>Pode enviar vários de uma vez</small>
+      Arraste os XMLs aqui ou <b>clique para escolher</b><small>Pode enviar vários de uma vez</small>
     </label>
     <div class="res" id="upRes"></div>
     <div class="foot"><button class="btn link" id="upManual">Cadastrar sem XML</button><div class="spacer"></div><button class="btn" id="upClose">Fechar</button></div>
@@ -200,8 +201,8 @@ h4:first-child{margin-top:0}
 const CONFIG = {
   SUPABASE_URL: 'https://ufsoulckfkhtwurgyxlp.supabase.co',
   SUPABASE_KEY: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVmc291bGNrZmtodHd1cmd5eGxwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIyNjczMTYsImV4cCI6MjA5Nzg0MzMxNn0.3JvUgfcllDgvs-THSADTjg15UYk5Bv8fA6GC5i9Cpg0',
-  PREFIX: 'hml_',            // produção: ''
-  AMBIENTE: 'HOMOLOGAÇÃO'    // produção: ''
+  PREFIX: '',                // homologação: 'hml_'
+  AMBIENTE: ''               // homologação: 'HOMOLOGAÇÃO'
 };
 // ======================================
 
