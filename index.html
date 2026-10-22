@@ -360,7 +360,7 @@ const TABS = {
         {k:'codigo_cliente', l:'Código do cliente'},
       ]],
       ['Da autorização', [
-        {k:'tipo', l:'Tipo', req:1, t:'tipo'}, {k:'motivo', l:'Motivo', req:1, t:'sel', opts:['Falta','Defeito']},
+        {k:'tipo', l:'Tipo', req:1, t:'tipo'}, {k:'motivo', l:'Motivo', req:1, t:'motivoDes'},
         {k:'valor', l:'Valor do desconto', req:1, t:'num'}, {k:'data_autorizacao', l:'Data da autorização', req:1, t:'date'},
         {k:'ocorrencia', l:'Ocorrência', req:1, t:'area', full:1},
       ]],
@@ -370,7 +370,7 @@ const TABS = {
       ['DATA AUTORIZADA', r => brDate(r.data_autorizacao)], ['OCORRÊNCIA', r => r.ocorrencia],
     ],
     csvExtra: rows => rows.some(r => r.origem === 'Avacy') ? [['TIPO', r => r.tipo]] : [],
-    kpis: rows => [['Descontos', rows.length], ['Valor', brl(sum(rows, 'valor'))], ['Falta / Defeito', `${rows.filter(r=>r.motivo==='Falta').length} / ${rows.filter(r=>r.motivo==='Defeito').length}`]],
+    kpis: rows => [['Descontos', rows.length], ['Valor', brl(sum(rows, 'valor'))], ['Falta / Defeito / Outros', `${rows.filter(r=>r.motivo==='Falta').length} / ${rows.filter(r=>r.motivo==='Defeito').length} / ${rows.filter(r=>r.motivo && !['Falta','Defeito'].includes(r.motivo)).length}`]],
     doXml: x => Object.assign(base(x), { pedido: x.origem === 'Martins' ? x.pedidoMts : x.pedidoAvacy, tipo: x.origem === 'Martins' ? 'Desconto' : null }),
   },
 };
@@ -412,6 +412,8 @@ async function load(tab, force){
 async function loadMotivos(){
   const { data, error } = await sb.from(T('motivos')).select('*').order('ordem');
   if(!error) S.motivos = data;
+  const r2 = await sb.from(T('motivos_desconto')).select('*').order('ordem');
+  S.motivosDes = r2.error ? [{nome:'Falta', ativo:true, martins:true, avacy:true}, {nome:'Defeito', ativo:true, martins:true, avacy:true}] : r2.data;
 }
 
 // ---------- filtros ----------
@@ -469,7 +471,7 @@ function refreshFilterOptions(){
   if(S.tab === 'dev'){
     fillSelect($('#fMotivo'), S.motivos.map(m => m.nome));
     $('#fMotivo').insertAdjacentHTML('beforeend', '<option value="__vazio">(sem motivo)</option>');
-  } else if(S.tab === 'des') fillSelect($('#fMotivo'), ['Falta','Defeito']);
+  } else if(S.tab === 'des') fillSelect($('#fMotivo'), (S.motivosDes || []).map(m => m.nome));
   const allRows = Object.values(S.data).flat().filter(Boolean);
   $('#dlVend').innerHTML = [...new Set(allRows.map(r => r.vendedor).filter(Boolean))].sort().map(v => `<option value="${esc(v)}">`).join('');
   $('#dlTransp').innerHTML = [...new Set(allRows.map(r => r.transportadora).filter(Boolean))].sort().map(v => `<option value="${esc(v)}">`).join('');
@@ -536,7 +538,7 @@ function fieldHTML(f, r){
       input = `<select id="${id}"><option value="">Escolha…</option>${ops.map(o => `<option ${o===v?'selected':''}>${esc(o)}</option>`).join('')}</select>`; break;
     }
     case 'sel': input = `<select id="${id}"><option value="">Escolha…</option>${f.opts.map(o => `<option ${o===v?'selected':''}>${o}</option>`).join('')}</select>`; break;
-    case 'tipo': input = `<select id="${id}"></select>`; break;
+    case 'tipo': case 'motivoDes': input = `<select id="${id}"></select>`; break;
     default: input = `<input id="${id}" value="${val}">`;
   }
   let hint = '';
@@ -560,6 +562,12 @@ function openDrawer(r, isNew=false){
       const o = org.value === 'Martins' ? ['Desconto'] : ['NCC','NCC Manual','Abatimento','Ressarcimento'];
       const cur = $('#e_tipo').value || r.tipo;
       $('#e_tipo').innerHTML = (o.length > 1 ? '<option value="">Escolha…</option>' : '') + o.map(x => `<option ${x===cur?'selected':''}>${x}</option>`).join('');
+    }
+    if(S.tab === 'des' && $('#e_motivo')){ // motivos de desconto vêm da tabela; cada um diz se vale para Martins e/ou Avacy
+      const cur = $('#e_motivo').value || r.motivo;
+      const k = org.value === 'Martins' ? 'martins' : 'avacy';
+      const o = (S.motivosDes || []).filter(m => (m.ativo && m[k]) || m.nome === cur).map(m => m.nome);
+      $('#e_motivo').innerHTML = '<option value="">Escolha…</option>' + o.map(x => `<option ${x===cur?'selected':''}>${esc(x)}</option>`).join('');
     }
     $$('#dBody [data-hint]').forEach(h => h.textContent = org.value === 'Avacy' ? 'Avacy: informe o que realmente voltou (pode ser parcial).' + (h.dataset.hint === 'valor_nfd' && r.valor_nf ? ` NF inteira: ${brl(r.valor_nf)}` : '') : '');
     if(org.value === 'Martins' && !$('#e_vendedor').value) $('#e_vendedor').value = 'MARTINS';
