@@ -114,6 +114,16 @@ h4:first-child{margin-top:0}
 .ri .t{flex:1;min-width:0}
 .ri .t div:first-child{font-weight:600}
 .ri .btn{padding:5px 10px;font-size:12px}
+.anexos{display:flex;flex-direction:column;gap:8px}
+.anx{display:flex;align-items:center;gap:12px;background:var(--input);border:1px solid var(--line);border-radius:10px;padding:9px 12px}
+.anx .ic{font-size:10px;font-weight:800;padding:6px 7px;border-radius:6px;background:rgba(124,58,237,.18);color:var(--roxo-light);border:1px solid rgba(124,58,237,.4);min-width:36px;text-align:center}
+.anx .ic.pdf{background:rgba(239,68,68,.15);color:#FCA5A5;border-color:rgba(239,68,68,.35)}
+.anx .ic.img{background:rgba(13,148,136,.15);color:var(--teal-light);border-color:rgba(13,148,136,.4)}
+.anx.fila{border-style:dashed}
+.anx-i{flex:1;min-width:0}
+.anx-n{font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.anx .btn{padding:6px 10px;font-size:12px}
+.anxadd{margin-top:10px;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
 .toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--card2);border:1px solid var(--line);color:var(--ink);padding:11px 18px;border-radius:10px;z-index:80;display:none;max-width:90%;box-shadow:0 8px 24px rgba(0,0,0,.4)}
 .toast.ok{border-color:rgba(16,185,129,.5);color:var(--ok)}.toast.bad{border-color:rgba(239,68,68,.5);color:var(--bad)}
 ::-webkit-scrollbar{width:8px;height:8px}::-webkit-scrollbar-track{background:var(--bg)}::-webkit-scrollbar-thumb{background:var(--line);border-radius:4px}
@@ -351,6 +361,7 @@ const TABS = {
       {h:'Motivo', k:'motivo', v:r => esc(r.motivo) || MISS},
       {h:'Valor', k:'valor', n:1, v:r => r.valor == null ? MISS : brl(r.valor)},
       {h:'Autorizado', k:'data_autorizacao', v:r => r.data_autorizacao ? `<span class="nw">${brDate(r.data_autorizacao)}</span>` : MISS},
+      {h:'📎', k:'_anx', v:r => { const n = (S.anexos[r.id] || []).length; return n ? `<span class="sub nw" title="${n} anexo(s)">📎 ${n}</span>` : ''; }},
       {h:'Ocorrência', k:'ocorrencia', v:r => r.ocorrencia ? `<div class="clip2" style="max-width:420px" title="${esc(r.ocorrencia)}">${esc(r.ocorrencia)}</div>` : MISS},
     ],
     secoes: [
@@ -385,7 +396,7 @@ const sum = (rows, k) => rows.reduce((a, r) => a + (Number(r[k]) || 0), 0);
 const csvNum = v => v == null ? '' : Number(v).toFixed(2).replace('.', ',');
 
 // ---------- estado ----------
-const S = { tab: ['dev','adi','des'].includes(ls.get('dev_tab')) ? ls.get('dev_tab') : 'dev', data: {dev:null, adi:null, des:null},
+const S = { anexos: {}, fila: [], cfAction: null, tab: ['dev','adi','des'].includes(ls.get('dev_tab')) ? ls.get('dev_tab') : 'dev', data: {dev:null, adi:null, des:null},
             motivos: [], sort: {}, open: null, isNew: false, mute: 0 };
 
 // ---------- toast ----------
@@ -406,7 +417,7 @@ async function fetchAll(tab){
 async function load(tab, force){
   if(S.data[tab] && !force) return;
   $('#rows').innerHTML = `<tr><td class="empty" colspan="20">Carregando…</td></tr>`;
-  try { S.data[tab] = await fetchAll(tab); }
+  try { S.data[tab] = await fetchAll(tab); if(tab === 'des') await loadAnexos(); }
   catch(e){ console.error(e); $('#rows').innerHTML = `<tr><td class="empty" colspan="20">Não consegui ler o banco (${esc(e.message)}). Confira se o SQL foi rodado.</td></tr>`; throw e; }
 }
 async function loadMotivos(){
@@ -573,6 +584,14 @@ function openDrawer(r, isNew=false){
     if(org.value === 'Martins' && !$('#e_vendedor').value) $('#e_vendedor').value = 'MARTINS';
   };
   org.onchange = sync; sync();
+  if(S.tab === 'des'){
+    $$('#dBody .grid2').pop().insertAdjacentHTML('afterend', `<h4>Anexos</h4><div id="anxBox"></div>
+      <div class="anxadd"><button class="btn" id="anxBtn" type="button">📎 Anexar arquivo</button><span class="sub">Foto, PDF, planilha, e-mail etc. · até ${MAX_MB} MB cada</span>
+      <input type="file" id="anxIn" multiple hidden></div>`);
+    $('#anxBtn').onclick = () => $('#anxIn').click();
+    $('#anxIn').onchange = e => { const f = [...e.target.files]; e.target.value = ''; adicionarAnexos(f); };
+    renderAnexos();
+  }
   $('#dBody').oninput = markEmpty; $('#dBody').onchange = markEmpty; markEmpty();
   $('#ov').classList.add('show'); $('#drawer').classList.add('show');
 }
@@ -583,7 +602,7 @@ function markEmpty(){
     w.classList.toggle('empty-req', !(cb && cb.checked) && !String(el.value).trim());
   });
 }
-function closeDrawer(){ $('#ov').classList.remove('show'); $('#drawer').classList.remove('show'); S.open = null; }
+function closeDrawer(){ S.fila = []; $('#ov').classList.remove('show'); $('#drawer').classList.remove('show'); S.open = null; }
 function readForm(){
   const cfg = TABS[S.tab], o = {};
   for(const [, fs] of cfg.secoes) for(const f of fs){
@@ -617,6 +636,7 @@ async function save(){
     else res = await sb.from(T(TABS[S.tab].tabela)).update(o).eq('id', S.open.id).select().single();
     if(res.error) throw res.error;
     upsertLocal(res.data);
+    if(S.tab === 'des' && S.fila.length){ toast('Enviando anexos…'); await subirAnexos(res.data.id, S.fila); S.fila = []; }
     toast(res.data.status === 'completo' ? 'Salvo. Registro completo ✔' : 'Salvo. Ainda há campos pendentes.', 'ok');
     closeDrawer(); refreshFilterOptions(); render();
   } catch(e){ toast(errMsg(e), 'bad'); }
@@ -637,15 +657,101 @@ function askDelete(){
   const r = S.open;
   $('#cfTitle').textContent = 'Excluir registro?';
   $('#cfText').textContent = `NF ${r.nf}${r.nfd ? ' / NFD ' + r.nfd : ''} · ${r.cliente || ''}. Essa ação não pode ser desfeita.`;
+  $('#cfYes').textContent = 'Excluir';
+  S.cfAction = doDelete;
   $('#cfModal').classList.add('show');
 }
 async function doDelete(){
   $('#cfModal').classList.remove('show');
   S.mute = Date.now() + 4000;
+  if(S.tab === 'des'){ // apaga também os arquivos guardados
+    const cam = (S.anexos[S.open.id] || []).map(a => a.caminho);
+    if(cam.length) await sb.storage.from(BUCKET).remove(cam);
+  }
   const { error } = await sb.from(T(TABS[S.tab].tabela)).delete().eq('id', S.open.id);
   if(error){ toast(errMsg(error), 'bad'); return; }
   S.data[S.tab] = S.data[S.tab].filter(x => x.id !== S.open.id);
   closeDrawer(); render(); toast('Registro excluído.', 'ok');
+}
+
+// ---------- anexos (descontos) ----------
+const BUCKET = 'dev-anexos';
+const PASTA = CONFIG.PREFIX ? 'hml' : 'prod';
+const MAX_MB = 10;
+const fmtSize = b => b < 1048576 ? Math.max(1, Math.round(b/1024)) + ' KB' : (b/1048576).toFixed(1).replace('.', ',') + ' MB';
+const safeName = n => n.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^\w.\-]+/g, '_').slice(-120);
+const icone = (mime, nome) => /pdf/i.test(mime) || /\.pdf$/i.test(nome) ? ['PDF','pdf'] : /^image\//.test(mime) ? ['IMG','img'] : [(String(nome).split('.').pop() || 'ARQ').slice(0,4).toUpperCase(), ''];
+async function loadAnexos(){
+  const out = [];
+  for(let from = 0; ; from += 1000){
+    const { data, error } = await sb.from(T('desconto_anexos')).select('*').order('created_at').range(from, from + 999);
+    if(error){ console.warn('anexos:', error.message); break; }
+    out.push(...data); if(data.length < 1000) break;
+  }
+  S.anexos = {};
+  out.forEach(a => (S.anexos[a.desconto_id] = S.anexos[a.desconto_id] || []).push(a));
+}
+function renderAnexos(){
+  const box = $('#anxBox'); if(!box) return;
+  const salvos = S.open && S.open.id ? (S.anexos[S.open.id] || []) : [];
+  const item = (nome, mime, extra, btns, cls='') => { const [t, c] = icone(mime, nome);
+    return `<div class="anx ${cls}"><span class="ic ${c}">${esc(t)}</span><div class="anx-i"><div class="anx-n" title="${esc(nome)}">${esc(nome)}</div><div class="sub">${extra}</div></div>${btns}</div>`; };
+  box.innerHTML = (salvos.length || S.fila.length) ? `<div class="anexos">`
+    + salvos.map(a => item(a.nome_arquivo, a.tipo_mime, `${fmtSize(a.tamanho || 0)} · ${new Date(a.created_at).toLocaleString('pt-BR')}`,
+        `<button class="btn" data-dl="${a.id}" type="button">Baixar</button><button class="btn danger" data-rm="${a.id}" type="button">Remover</button>`)).join('')
+    + S.fila.map((f, i) => item(f.name, f.type, `${fmtSize(f.size)} · será enviado ao salvar`, `<button class="btn" data-q="${i}" type="button">Tirar</button>`, 'fila')).join('')
+    + `</div>` : `<div class="sub">Nenhum anexo.</div>`;
+  box.onclick = e => {
+    const b = e.target.closest('button'); if(!b) return;
+    if(b.dataset.dl) baixarAnexo(b.dataset.dl);
+    if(b.dataset.rm) askRemoverAnexo(b.dataset.rm);
+    if(b.dataset.q != null){ S.fila.splice(+b.dataset.q, 1); renderAnexos(); }
+  };
+}
+async function adicionarAnexos(files){
+  const ok = files.filter(f => { if(f.size > MAX_MB * 1048576){ toast(`${f.name}: acima de ${MAX_MB} MB`, 'bad'); return false; } return true; });
+  if(!ok.length) return;
+  if(S.isNew || !S.open.id){ S.fila.push(...ok); renderAnexos(); return; }
+  $('#anxBtn').disabled = true; toast('Enviando anexo…');
+  const n = await subirAnexos(S.open.id, ok);
+  $('#anxBtn').disabled = false;
+  if(n) toast(`${n} arquivo(s) anexado(s).`, 'ok');
+  renderAnexos(); render();
+}
+async function subirAnexos(id, files){
+  let ok = 0;
+  for(const f of files){
+    const caminho = `${PASTA}/${id}/${Date.now()}_${safeName(f.name)}`;
+    const up = await sb.storage.from(BUCKET).upload(caminho, f, { contentType: f.type || 'application/octet-stream', upsert: false });
+    if(up.error){ toast(`${f.name}: não consegui enviar (${up.error.message})`, 'bad'); continue; }
+    const r = await sb.from(T('desconto_anexos')).insert({ desconto_id: id, nome_arquivo: f.name, caminho, tamanho: f.size, tipo_mime: f.type || null }).select().single();
+    if(r.error){ await sb.storage.from(BUCKET).remove([caminho]); toast(`${f.name}: ${r.error.message}`, 'bad'); continue; }
+    (S.anexos[id] = S.anexos[id] || []).push(r.data); ok++;
+  }
+  return ok;
+}
+function acharAnexo(aid){ for(const k in S.anexos){ const a = S.anexos[k].find(x => x.id === aid); if(a) return a; } }
+async function baixarAnexo(aid){
+  const a = acharAnexo(aid); if(!a) return;
+  const { data, error } = await sb.storage.from(BUCKET).createSignedUrl(a.caminho, 60, { download: a.nome_arquivo });
+  if(error){ toast('Não consegui baixar: ' + error.message, 'bad'); return; }
+  const l = document.createElement('a'); l.href = data.signedUrl; l.target = '_blank'; l.rel = 'noopener';
+  document.body.appendChild(l); l.click(); l.remove();
+}
+function askRemoverAnexo(aid){
+  const a = acharAnexo(aid); if(!a) return;
+  $('#cfTitle').textContent = 'Remover anexo?';
+  $('#cfText').textContent = `${a.nome_arquivo}. O arquivo será apagado e não poderá ser recuperado.`;
+  $('#cfYes').textContent = 'Remover';
+  S.cfAction = async () => {
+    $('#cfModal').classList.remove('show');
+    await sb.storage.from(BUCKET).remove([a.caminho]);
+    const { error } = await sb.from(T('desconto_anexos')).delete().eq('id', a.id);
+    if(error){ toast('Erro ao remover: ' + error.message, 'bad'); return; }
+    S.anexos[a.desconto_id] = (S.anexos[a.desconto_id] || []).filter(x => x.id !== a.id);
+    renderAnexos(); render(); toast('Anexo removido.', 'ok');
+  };
+  $('#cfModal').classList.add('show');
 }
 
 // ---------- XML da NF-e ----------
@@ -787,7 +893,7 @@ drop.ondragleave = () => drop.classList.remove('over');
 drop.ondrop = e => { e.preventDefault(); drop.classList.remove('over'); handleFiles([...e.dataTransfer.files].filter(f => /\.xml$/i.test(f.name))); };
 $('#dClose').onclick = closeDrawer; $('#dCancel').onclick = closeDrawer; $('#ov').onclick = closeDrawer;
 $('#dSave').onclick = save; $('#dDel').onclick = askDelete;
-$('#cfNo').onclick = () => $('#cfModal').classList.remove('show'); $('#cfYes').onclick = doDelete;
+$('#cfNo').onclick = () => $('#cfModal').classList.remove('show'); $('#cfYes').onclick = () => S.cfAction && S.cfAction();
 $('#btnCsv').onclick = baixarCsv;
 $('#banner').onclick = async () => { $('#banner').classList.remove('show'); await load(S.tab, true); refreshFilterOptions(); render(); };
 document.addEventListener('keydown', e => {
