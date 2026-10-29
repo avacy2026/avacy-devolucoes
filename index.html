@@ -402,6 +402,7 @@ const TABS = {
       {h:'NFD', k:'nfd', v:r => r.nfd ? `<span class="mono nw">${esc(r.nfd)}${copyBtn(r.nfd)}</span>` : MISS},
       {h:'Transp. ida', k:'transp_ida', v:r => esc(r.transp_ida) || MISS},
       {h:'Transp. coleta', k:'transp_coleta', v:r => esc(r.transp_coleta) || MISS},
+      {h:'Pagamento', k:'forma_pagamento', v:r => r.forma_pagamento ? `<span class="nw">${esc(r.forma_pagamento)}</span>` : MISS},
       {h:'Protocolo', k:'protocolo', v:r => r.protocolo ? `<span class="mono nw">${esc(r.protocolo)}${copyBtn(r.protocolo)}</span>` : '<span class="sub">—</span>'},
       {h:'Motivo', k:'motivo', v:r => esc(r.motivo) || MISS},
       {h:'Abertura', k:'data_abertura', v:r => `<span class="nw">${brDate(r.data_abertura)}</span>`},
@@ -414,6 +415,7 @@ const TABS = {
         {k:'nf', l:'Nota fiscal', req:1}, {k:'cnpj', l:'CNPJ', req:1, t:'cnpj'},
         {k:'cliente', l:'Cliente (razão social)', full:1},
         {k:'nfd', l:'NFD', req:1}, {k:'transp_ida', l:'Transportadora de ida', req:1, t:'transp'},
+        {k:'forma_pagamento', l:'Forma de pagamento', req:1, t:'sel', opts:['BOLETO','PIX','CARTÃO DE CRÉDITO']},
       ]],
       ['Da coleta', [
         {k:'transp_coleta', l:'Transportadora de coleta', req:1, t:'transp'}, {k:'protocolo', l:'Nº protocolo (opcional)'},
@@ -424,11 +426,11 @@ const TABS = {
     ],
     csv: [
       ['NF', r => r.nf], ['CNPJ', r => r.cnpj], ['NFD', r => r.nfd], ['TRANSPORTADORA IDA', r => r.transp_ida], ['TRANSPORTADORA COLETA', r => r.transp_coleta],
-      ['MOTIVO', r => r.motivo], ['OCORRÊNCIA', r => r.ocorrencia], ['PROTOCOLO', r => r.protocolo],
+      ['MOTIVO', r => r.motivo], ['OCORRÊNCIA', r => r.ocorrencia], ['FORMA DE PAGAMENTO', r => r.forma_pagamento], ['PROTOCOLO', r => r.protocolo],
       ['DATA ABERTURA', r => brDate(r.data_abertura)], ['DATA COLETA', r => brDate(r.data_coleta)], ['STATUS', r => ({aberta:'Aberta', atrasada:'Atrasada', coletada:'Coletada'})[stInfo(r).k]], ['DIAS EM ABERTO', r => r.status === 'aberta' ? diasAberta(r) : ''],
     ],
     kpis: rows => [['Coletas', rows.length], ['Em aberto', rows.filter(r => r.status === 'aberta').length], ['Coletadas', rows.filter(r => r.status === 'coletada').length]],
-    doXml: x => ({ origem: x.origem, vendedor: x.vendedor, nf: x.nf, cnpj: x.cnpj, cliente: x.cliente, transp_ida: transpCurta(x.transp), chave_nfe: x.chave }),
+    doXml: x => ({ origem: x.origem, vendedor: x.vendedor, nf: x.nf, cnpj: x.cnpj, cliente: x.cliente, transp_ida: transpCurta(x.transp), forma_pagamento: x.formaPag, chave_nfe: x.chave }),
   },
 };
 // ---------- status ----------
@@ -451,14 +453,14 @@ const COLS_DB = {
   dev: ['origem','vendedor','transportadora','cliente','cnpj','nf','uf','cep','valor_nf','chave_nfe','nfd','volumes','valor_nfd','data_devolucao','frete_ida','frete_ida_sem','frete_reverso','frete_reverso_sem','motivo','ocorrencia','pedido'],
   adi: ['origem','vendedor','cliente','cnpj','nf','valor_nf','transportadora','cep','valor_frete','frete_sem','valor_adicional','data_autorizacao','motivo'],
   des: ['origem','vendedor','tipo','pedido','nf','codigo_cliente','motivo','valor','data_autorizacao','ocorrencia'],
-  col: ['origem','vendedor','nf','cnpj','cliente','nfd','transp_ida','transp_coleta','motivo','ocorrencia','protocolo','data_abertura','data_coleta','chave_nfe'],
+  col: ['origem','vendedor','nf','cnpj','cliente','nfd','transp_ida','transp_coleta','motivo','ocorrencia','protocolo','forma_pagamento','data_abertura','data_coleta','chave_nfe'],
 };
 const base = x => ({ origem: x.origem, vendedor: x.vendedor, cliente: x.cliente, cnpj: x.cnpj, nf: x.nf, valor_nf: x.vNF });
 const sum = (rows, k) => rows.reduce((a, r) => a + (Number(r[k]) || 0), 0);
 const csvNum = v => v == null ? '' : Number(v).toFixed(2).replace('.', ',');
 
 // ---------- estado ----------
-const S = { anexos: {}, fila: [], cfAction: null, tab: ['dev','adi','des','col'].includes(ls.get('dev_tab')) ? ls.get('dev_tab') : 'dev', data: {dev:null, adi:null, des:null, col:null},
+const S = { xmls: {}, xmlPend: null, anexos: {}, fila: [], cfAction: null, tab: ['dev','adi','des','col'].includes(ls.get('dev_tab')) ? ls.get('dev_tab') : 'dev', data: {dev:null, adi:null, des:null, col:null},
             motivos: [], sort: {}, open: null, isNew: false, mute: 0 };
 
 // ---------- toast ----------
@@ -479,7 +481,7 @@ async function fetchAll(tab){
 async function load(tab, force){
   if(S.data[tab] && !force) return;
   $('#rows').innerHTML = `<tr><td class="empty" colspan="20">Carregando…</td></tr>`;
-  try { S.data[tab] = await fetchAll(tab); if(tab === 'des') await loadAnexos(); }
+  try { S.data[tab] = await fetchAll(tab); if(tab === 'des') await loadAnexos(); await loadXmls(tab); }
   catch(e){ console.error(e); $('#rows').innerHTML = `<tr><td class="empty" colspan="20">Não consegui ler o banco (${esc(e.message)}). Confira se o SQL foi rodado.</td></tr>`; throw e; }
 }
 async function loadMotivos(){
@@ -635,7 +637,8 @@ function openDrawer(r, isNew=false){
     ? `Novo registro · ${cfg.titulo}`
     : `NF ${esc(r.nf)} ${badge(r)} <span class="org org-${r.origem}">${esc(r.origem)}</span>`;
   $('#dBody').innerHTML = cfg.secoes.map(([t, fs]) => `<h4>${t}</h4><div class="grid2">${fs.map(f => fieldHTML(f, r)).join('')}</div>`).join('')
-    + (isNew ? '' : `<div class="meta">Criado em ${new Date(r.created_at).toLocaleString('pt-BR')} · última alteração ${new Date(r.updated_at).toLocaleString('pt-BR')}${r.importado ? ' · importado da planilha' : ''}</div>`);
+    + (isNew ? '' : `<div class="meta">Criado em ${new Date(r.created_at).toLocaleString('pt-BR')} · última alteração ${new Date(r.updated_at).toLocaleString('pt-BR')}${r.importado ? ' · importado da planilha' : ''}</div>`)
+    + (isNew ? (S.xmlPend ? `<div class="meta">📄 O XML da nota será guardado ao salvar.</div>` : '') : xmlLinha(r));
   $('#dDel').style.display = isNew ? 'none' : '';
   $('#dConf').style.display = S.tab === 'col' && r.status !== 'coletada' ? '' : 'none';
   $('#dReabrir').style.display = S.tab === 'col' && r.status === 'coletada' ? '' : 'none';
@@ -677,7 +680,7 @@ function markEmpty(){
     w.classList.toggle('empty-req', !(cb && cb.checked) && !String(el.value).trim());
   });
 }
-function closeDrawer(){ S.fila = []; $('#ov').classList.remove('show'); $('#drawer').classList.remove('show'); S.open = null; }
+function closeDrawer(){ S.fila = []; S.xmlPend = null; $('#ov').classList.remove('show'); $('#drawer').classList.remove('show'); S.open = null; }
 function readForm(){
   const cfg = TABS[S.tab], o = {};
   for(const [, fs] of cfg.secoes) for(const f of fs){
@@ -711,6 +714,7 @@ async function save(){
     else res = await sb.from(T(TABS[S.tab].tabela)).update(o).eq('id', S.open.id).select().single();
     if(res.error) throw res.error;
     upsertLocal(res.data);
+    if(S.isNew && S.xmlPend){ await salvarXml(S.tab, res.data.id, S.xmlPend.file, S.xmlPend.x); S.xmlPend = null; }
     if(S.tab === 'des' && S.fila.length){ toast('Enviando anexos…'); await subirAnexos(res.data.id, S.fila); S.fila = []; }
     toast(res.data.status === 'completo' ? 'Salvo. Registro completo ✔' : res.data.status === 'coletada' ? 'Coleta confirmada ✔' : res.data.status === 'aberta' ? 'Salvo. Coleta em aberto.' : 'Salvo. Ainda há campos pendentes.', 'ok');
     closeDrawer(); refreshFilterOptions(); render();
@@ -739,6 +743,8 @@ function askDelete(){
 async function doDelete(){
   $('#cfModal').classList.remove('show');
   S.mute = Date.now() + 4000;
+  const xm = (S.xmls[S.tab] || {})[S.open.id];
+  if(xm){ await sb.storage.from(BUCKET).remove([xm.caminho]); await sb.from(T('xmls')).delete().eq('id', xm.id); }
   if(S.tab === 'des'){ // apaga também os arquivos guardados
     const cam = (S.anexos[S.open.id] || []).map(a => a.caminho);
     if(cam.length) await sb.storage.from(BUCKET).remove(cam);
@@ -829,6 +835,37 @@ function askRemoverAnexo(aid){
   $('#cfModal').classList.add('show');
 }
 
+// ---------- XML guardado ----------
+async function loadXmls(tab){
+  S.xmls[tab] = {};
+  for(let from = 0; ; from += 1000){
+    const { data, error } = await sb.from(T('xmls')).select('*').eq('aba', tab).order('created_at').range(from, from + 999);
+    if(error){ console.warn('xmls:', error.message); break; }
+    data.forEach(x => S.xmls[tab][x.registro_id] = x);
+    if(data.length < 1000) break;
+  }
+}
+async function salvarXml(tab, id, file, x){
+  const caminho = `${PASTA}/xml/${tab}/${x.chave || ('nf' + x.nf)}_${id.slice(0,8)}.xml`;
+  const up = await sb.storage.from(BUCKET).upload(caminho, file, { contentType: 'text/xml', upsert: true });
+  if(up.error){ toast('Registro criado, mas não consegui guardar o XML: ' + up.error.message, 'bad'); return; }
+  const r = await sb.from(T('xmls')).insert({ aba: tab, registro_id: id, nf: x.nf, chave_nfe: x.chave, nome_arquivo: file.name, caminho, tamanho: file.size }).select().single();
+  if(r.error){ toast('XML enviado, mas não consegui registrar: ' + r.error.message, 'bad'); return; }
+  (S.xmls[tab] = S.xmls[tab] || {})[id] = r.data;
+}
+function xmlLinha(r){
+  const xm = (S.xmls[S.tab] || {})[r.id];
+  return xm ? `<div class="meta">📄 XML da nota guardado · <button class="btn link" type="button" onclick="baixarXml('${r.id}')">Baixar XML</button></div>`
+            : `<div class="meta">📄 Sem XML guardado (registro manual, da planilha ou criado antes desta função)</div>`;
+}
+async function baixarXml(id){
+  const xm = (S.xmls[S.tab] || {})[id]; if(!xm) return;
+  const { data, error } = await sb.storage.from(BUCKET).createSignedUrl(xm.caminho, 60, { download: xm.nome_arquivo || ('NF' + xm.nf + '.xml') });
+  if(error){ toast('Não consegui baixar: ' + error.message, 'bad'); return; }
+  const l = document.createElement('a'); l.href = data.signedUrl; l.target = '_blank'; l.rel = 'noopener';
+  document.body.appendChild(l); l.click(); l.remove();
+}
+
 // ---------- XML da NF-e ----------
 function parseNFe(text){
   const doc = new DOMParser().parseFromString(text, 'application/xml');
@@ -841,6 +878,11 @@ function parseNFe(text){
   const vols = transp ? [...transp.getElementsByTagNameNS('*', 'vol')] : [];
   const qVol = vols.reduce((a, v) => a + (parseInt(tx(v, 'qVol')) || 0), 0) || null;
   const cpl = tx(inf, 'infCpl') || '';
+  // forma de pagamento: o texto "Forma Pagto:" das observações é o confiável (o código tPag do ERP vem sempre 01)
+  const fpTxt = ((cpl.match(/Forma\s*Pagto\s*:\s*([^,;\n]+)/i) || [])[1] || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase();
+  const tPag = tx(inf, 'tPag');
+  const formaPag = /BOLETO/.test(fpTxt) ? 'BOLETO' : /PIX/.test(fpTxt) ? 'PIX' : /CART/.test(fpTxt) && /CRED/.test(fpTxt) ? 'CARTÃO DE CRÉDITO'
+    : ({'15':'BOLETO','17':'PIX','03':'CARTÃO DE CRÉDITO'})[tPag] || null;
   const vendedor = (cpl.match(/Vendedor:\s*([^,;\n]+)/i) || [])[1]?.trim().toUpperCase() || null;
   const pedidoMts = (cpl.match(/Pedido\s*\(MTS\)\s*:\s*([^\s,;]+)/i) || [])[1] || null;
   const pedidoAvacy = (cpl.match(/Pedido\s*:\s*([^\s,;]+)/i) || [])[1] || null;
@@ -851,7 +893,7 @@ function parseNFe(text){
     uf: tx(ender, 'UF'), cep: tx(ender, 'CEP'), vNF: vNF ? Number(vNF) : null,
     transp: tx(one(transp, 'transporta'), 'xNome'), qVol,
     vendedor, origem: vendedor === 'MARTINS' ? 'Martins' : 'Avacy', pedidoMts, pedidoAvacy,
-    chave: (inf.getAttribute('Id') || '').replace(/^NFe/, '') || null,
+    chave: (inf.getAttribute('Id') || '').replace(/^NFe/, '') || null, formaPag,
     emit: tx(one(inf, 'emit'), 'xNome'),
   };
 }
@@ -891,8 +933,8 @@ async function handleFiles(files){
         const novo = Object.fromEntries(Object.entries(o).filter(([k]) => COLS_DB.des.includes(k)));
         set('warn', nome, `${quem}. Escolha o tipo (NCC, NCC Manual, Abatimento ou Ressarcimento) e salve.`);
         item.insertAdjacentHTML('beforeend', '<button class="btn">Preencher</button>');
-        item.querySelector('button').onclick = () => { $('#upModal').classList.remove('show'); openDrawer(novo, true); };
-        if(files.length === 1){ $('#upModal').classList.remove('show'); openDrawer(novo, true); }
+        item.querySelector('button').onclick = () => { $('#upModal').classList.remove('show'); S.xmlPend = {file, x}; openDrawer(novo, true); };
+        if(files.length === 1){ $('#upModal').classList.remove('show'); S.xmlPend = {file, x}; openDrawer(novo, true); }
         continue;
       }
       const clean = Object.fromEntries(Object.entries(o).filter(([k]) => COLS_DB[S.tab].includes(k)));
@@ -900,6 +942,7 @@ async function handleFiles(files){
       const { data, error } = await sb.from(tbl).insert(clean).select().single();
       if(error) throw errMsg(error);
       upsertLocal(data);
+      await salvarXml(S.tab, data.id, file, x);
       const falta = x.origem === 'Avacy' && S.tab === 'dev' ? 'Avacy: informe valor e volumes que voltaram.' : 'Complete os campos manuais.';
       set('ok', nome, `${quem} · ${esc(x.transp || '')} · ${brl(x.vNF)}. ${falta}`, data);
       if(files.length === 1){ $('#upModal').classList.remove('show'); openDrawer(data); toast('Dados da nota preenchidos. Complete o restante.', 'ok'); }
