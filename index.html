@@ -93,6 +93,13 @@ h4:first-child{margin-top:0}
 .req > label::after{content:' *';color:var(--amber)}
 .f.empty-req input,.f.empty-req select,.f.empty-req textarea{border-color:rgba(245,158,11,.55)}
 .frete{display:flex;gap:8px;align-items:center}
+.multi{display:flex;flex-wrap:wrap;gap:6px;align-items:center;padding:6px 8px;border:1px solid var(--line);border-radius:8px;background:var(--input);min-height:40px;cursor:text}
+.multi:focus-within{border-color:var(--roxo-light);box-shadow:0 0 0 3px rgba(124,58,237,.15)}
+.f.empty-req .multi{border-color:rgba(245,158,11,.55)}
+.chip{display:inline-flex;align-items:center;gap:4px;background:rgba(124,58,237,.18);border:1px solid rgba(124,58,237,.4);color:var(--ink);border-radius:6px;padding:3px 4px 3px 8px;font:13px ui-monospace,Menlo,Consolas,monospace}
+.chip button{border:0;background:none;color:var(--mute);cursor:pointer;font-size:14px;line-height:1;padding:0 3px}.chip button:hover{color:var(--bad)}
+.multi input{border:0;background:none;box-shadow:none!important;padding:4px;flex:1;min-width:90px}
+.nfs div{white-space:nowrap}
 .frete input[type=text]{flex:1}
 .chk{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--mute);white-space:nowrap;cursor:pointer}
 .chk input{accent-color:var(--roxo)}
@@ -248,6 +255,9 @@ function maskCnpj(v){
   return v || '';
 }
 const maskCep = v => { const d = dig(v); return d.length === 8 ? d.slice(0,5) + '-' + d.slice(5) : (v || ''); };
+const nfList = v => [...new Set(String(v ?? '').split(/[\s,;\/]+/).map(dig).filter(Boolean))];
+const nfJoin = v => nfList(v).join(', ');
+const nfCell = v => { const l = nfList(v); return l.length > 1 ? `<div class="mono nfs">${l.map(n => `<div>${n}${copyBtn(n)}</div>`).join('')}</div>` : (l.length ? `<span class="mono nw">${l[0]}${copyBtn(l[0])}</span>` : MISS); };
 const copyBtn = v => v ? `<button class="cp" data-copy="${esc(v)}" title="Copiar">⧉</button>` : '';
 const MISS = '<span class="miss">—</span>';
 const freteTxt = (v, sem) => sem ? '<span class="sub">sem frete</span>' : (v == null ? MISS : brl(v));
@@ -323,7 +333,7 @@ const TABS = {
       {h:'Status', k:'status', v:r => badge(r)},
       {h:'Origem', k:'origem', v:r => `<span class="org org-${r.origem}">${esc(r.origem)}</span>${r.origem === 'Avacy' ? `<div class="sub">${esc(r.vendedor||'')}</div>` : ''}`},
       {h:'Cliente', k:'cliente', v:r => `<div class="clip2">${esc(r.cliente) || MISS}</div><div class="sub nw">${esc(maskCnpj(r.cnpj))}</div>`},
-      {h:'NF', k:'nf', v:r => `<span class="mono nw">${esc(r.nf)}${copyBtn(r.nf)}</span>`},
+      {h:'NF', k:'nf', v:r => nfCell(r.nf)},
       {h:'Valor NF', k:'valor_nf', n:1, v:r => r.valor_nf == null ? MISS : brl(r.valor_nf)},
       {h:'Valor frete', k:'valor_frete', n:1, v:r => freteTxt(r.valor_frete, r.frete_sem)},
       {h:'Adicional', k:'valor_adicional', n:1, v:r => r.valor_adicional == null ? MISS : brl(r.valor_adicional)},
@@ -335,7 +345,7 @@ const TABS = {
     secoes: [
       ['Da nota fiscal', [
         {k:'origem', l:'Origem', t:'origem'}, {k:'vendedor', l:'Vendedor', t:'vend'},
-        {k:'nf', l:'Nota fiscal', req:1}, {k:'valor_nf', l:'Valor da NF', req:1, t:'num'},
+        {k:'nf', l:'Notas fiscais', req:1, t:'multi', full:1}, {k:'valor_nf', l:'Valor das NFs (soma)', req:1, t:'num'},
         {k:'cliente', l:'Cliente (razão social)', req:1, full:1}, {k:'cnpj', l:'CNPJ', t:'cnpj'},
         {k:'transportadora', l:'Transportadora', t:'transp'}, {k:'cep', l:'CEP', t:'cep'},
       ]],
@@ -397,9 +407,9 @@ const TABS = {
     cols: [
       {h:'Status', k:'status', v:r => badge(r)},
       {h:'Origem', k:'origem', v:r => `<span class="org org-${r.origem}">${esc(r.origem)}</span>${r.origem === 'Avacy' ? `<div class="sub">${esc(r.vendedor||'')}</div>` : ''}`},
-      {h:'NF', k:'nf', v:r => `<span class="mono nw">${esc(r.nf)}${copyBtn(r.nf)}</span>`},
+      {h:'NF', k:'nf', v:r => nfCell(r.nf)},
       {h:'Cliente', k:'cliente', v:r => `<div class="clip2">${esc(r.cliente) || ''}</div><div class="sub nw">${esc(maskCnpj(r.cnpj)) || MISS}</div>`},
-      {h:'NFD', k:'nfd', v:r => r.nfd ? `<span class="mono nw">${esc(r.nfd)}${copyBtn(r.nfd)}</span>` : MISS},
+      {h:'NFD', k:'nfd', v:r => nfCell(r.nfd)},
       {h:'Transp. ida', k:'transp_ida', v:r => esc(r.transp_ida) || MISS},
       {h:'Transp. coleta', k:'transp_coleta', v:r => esc(r.transp_coleta) || MISS},
       {h:'Pagamento', k:'forma_pagamento', v:r => r.forma_pagamento ? `<span class="nw">${esc(r.forma_pagamento)}</span>` : MISS},
@@ -412,9 +422,10 @@ const TABS = {
     secoes: [
       ['Da nota fiscal', [
         {k:'origem', l:'Origem', t:'origem'}, {k:'vendedor', l:'Vendedor', t:'vend'},
-        {k:'nf', l:'Nota fiscal', req:1}, {k:'cnpj', l:'CNPJ', req:1, t:'cnpj'},
+        {k:'nf', l:'Notas fiscais', req:1, t:'multi', full:1}, {k:'cnpj', l:'CNPJ', req:1, t:'cnpj'},
         {k:'cliente', l:'Cliente (razão social)', full:1},
-        {k:'nfd', l:'NFD', req:1}, {k:'transp_ida', l:'Transportadora de ida', req:1, t:'transp'},
+        {k:'transp_ida', l:'Transportadora de ida', req:1, t:'transp'},
+        {k:'nfd', l:'NFDs', req:1, t:'multi', full:1},
         {k:'forma_pagamento', l:'Forma de pagamento', req:1, t:'sel', opts:['BOLETO','PIX','CARTÃO DE CRÉDITO']},
       ]],
       ['Da coleta', [
@@ -460,7 +471,7 @@ const sum = (rows, k) => rows.reduce((a, r) => a + (Number(r[k]) || 0), 0);
 const csvNum = v => v == null ? '' : Number(v).toFixed(2).replace('.', ',');
 
 // ---------- estado ----------
-const S = { xmls: {}, xmlPend: null, anexos: {}, fila: [], cfAction: null, tab: ['dev','adi','des','col'].includes(ls.get('dev_tab')) ? ls.get('dev_tab') : 'dev', data: {dev:null, adi:null, des:null, col:null},
+const S = { xmls: {}, xmlPend: [], anexos: {}, fila: [], cfAction: null, tab: ['dev','adi','des','col'].includes(ls.get('dev_tab')) ? ls.get('dev_tab') : 'dev', data: {dev:null, adi:null, des:null, col:null},
             motivos: [], sort: {}, open: null, isNew: false, mute: 0 };
 
 // ---------- toast ----------
@@ -612,6 +623,7 @@ function fieldHTML(f, r){
     case 'cep': input = `<input id="${id}" value="${esc(maskCep(v))}" inputmode="numeric">`; break;
     case 'uf': input = `<input id="${id}" value="${val}" maxlength="2" style="text-transform:uppercase">`; break;
     case 'area': input = `<textarea id="${id}">${val}</textarea>`; break;
+    case 'multi': input = `<input type="hidden" id="${id}" value="${esc(nfJoin(v))}"><div class="multi" data-multi="${f.k}"><input type="text" inputmode="numeric" placeholder="Digite e tecle Enter"></div>`; break;
     case 'frete': input = `<div class="frete"><input type="text" inputmode="decimal" id="${id}" value="${v == null ? '' : brNum(v)}" placeholder="0,00" ${r[f.sem] ? 'disabled' : ''}>
         <label class="chk"><input type="checkbox" id="e_${f.sem}" ${r[f.sem] ? 'checked' : ''}> Sem frete</label></div>`; break;
     case 'motivo': {
@@ -638,7 +650,7 @@ function openDrawer(r, isNew=false){
     : `NF ${esc(r.nf)} ${badge(r)} <span class="org org-${r.origem}">${esc(r.origem)}</span>`;
   $('#dBody').innerHTML = cfg.secoes.map(([t, fs]) => `<h4>${t}</h4><div class="grid2">${fs.map(f => fieldHTML(f, r)).join('')}</div>`).join('')
     + (isNew ? '' : `<div class="meta">Criado em ${new Date(r.created_at).toLocaleString('pt-BR')} · última alteração ${new Date(r.updated_at).toLocaleString('pt-BR')}${r.importado ? ' · importado da planilha' : ''}</div>`)
-    + (isNew ? (S.xmlPend ? `<div class="meta">📄 O XML da nota será guardado ao salvar.</div>` : '') : xmlLinha(r));
+    + (isNew ? (S.xmlPend.length ? `<div class="meta">📄 O XML da nota será guardado ao salvar.</div>` : '') : xmlLinha(r));
   $('#dDel').style.display = isNew ? 'none' : '';
   $('#dConf').style.display = S.tab === 'col' && r.status !== 'coletada' ? '' : 'none';
   $('#dReabrir').style.display = S.tab === 'col' && r.status === 'coletada' ? '' : 'none';
@@ -670,8 +682,52 @@ function openDrawer(r, isNew=false){
     $('#anxIn').onchange = e => { const f = [...e.target.files]; e.target.value = ''; adicionarAnexos(f); };
     renderAnexos();
   }
+  $$('#dBody [data-multi]').forEach(initMulti);
+  if(S.tab === 'adi' || S.tab === 'col'){
+    $$('#dBody .grid2')[0].insertAdjacentHTML('afterend', `<div class="anxadd"><button class="btn" id="xmlMais" type="button">📄 + Adicionar outra NF por XML</button><span class="sub">Mesmo cliente: soma a NF a este registro${S.tab === 'adi' ? ' e o valor' : ''}</span><input type="file" id="xmlMaisIn" accept=".xml,text/xml" multiple hidden></div>`);
+    $('#xmlMais').onclick = () => $('#xmlMaisIn').click();
+    $('#xmlMaisIn').onchange = e => { const f = [...e.target.files]; e.target.value = ''; addNfXml(f); };
+  }
   $('#dBody').oninput = markEmpty; $('#dBody').onchange = markEmpty; markEmpty();
   $('#ov').classList.add('show'); $('#drawer').classList.add('show');
+}
+function initMulti(box){
+  const hid = $('#e_' + box.dataset.multi), inp = box.querySelector('input');
+  const draw = () => {
+    box.querySelectorAll('.chip').forEach(c => c.remove());
+    nfList(hid.value).forEach(n => inp.insertAdjacentHTML('beforebegin', `<span class="chip">${n}<button type="button" data-n="${n}" title="Tirar">×</button></span>`));
+    markEmpty();
+  };
+  const add = () => { const novos = nfList(inp.value); if(!novos.length) return; hid.value = nfJoin(hid.value + ',' + novos.join(',')); inp.value = ''; draw(); };
+  inp.onkeydown = e => {
+    if(['Enter',',',';',' ','Tab'].includes(e.key) && inp.value.trim()){ if(e.key !== 'Tab') e.preventDefault(); add(); }
+    if(e.key === 'Backspace' && !inp.value){ const l = nfList(hid.value); l.pop(); hid.value = l.join(', '); draw(); }
+  };
+  inp.onblur = add;
+  inp.onpaste = () => setTimeout(add, 0);
+  box.onclick = e => { const b = e.target.closest('button[data-n]'); if(b){ hid.value = nfList(hid.value).filter(n => n !== b.dataset.n).join(', '); draw(); } else inp.focus(); };
+  box.addMulti = n => { hid.value = nfJoin(hid.value + ',' + n); draw(); };
+  draw();
+}
+async function addNfXml(files){
+  const box = $('#dBody [data-multi=nf]');
+  for(const file of files){
+    let x; try { x = parseNFe(await file.text()); } catch(e){ toast(`${file.name}: ${typeof e === 'string' ? e : e.message}`, 'bad'); continue; }
+    const cnpjAtual = dig($('#e_cnpj').value);
+    if(cnpjAtual && x.cnpj && dig(x.cnpj) !== cnpjAtual){ toast(`NF ${x.nf} é de outro cliente (${maskCnpj(x.cnpj)}). Não foi adicionada.`, 'bad'); continue; }
+    if(nfList($('#e_nf').value).includes(x.nf)){ toast(`NF ${x.nf} já está neste registro.`, 'bad'); continue; }
+    box.addMulti(x.nf);
+    if(!cnpjAtual && x.cnpj) $('#e_cnpj').value = maskCnpj(x.cnpj);
+    if($('#e_cliente') && !$('#e_cliente').value) $('#e_cliente').value = x.cliente || '';
+    if(S.tab === 'adi' && x.vNF != null){ const atual = parseNum($('#e_valor_nf').value) || 0; $('#e_valor_nf').value = brNum(atual + x.vNF); }
+    if(S.tab === 'adi' && $('#e_cep') && !$('#e_cep').value) $('#e_cep').value = maskCep(x.cep);
+    if(S.tab === 'adi' && !$('#e_transportadora').value) $('#e_transportadora').value = transpCurta(x.transp) || '';
+    if(S.tab === 'col' && !$('#e_transp_ida').value) $('#e_transp_ida').value = transpCurta(x.transp) || '';
+    if(S.tab === 'col' && !$('#e_forma_pagamento').value && x.formaPag) $('#e_forma_pagamento').value = x.formaPag;
+    S.xmlPend.push({file, x});
+    toast(`NF ${x.nf} adicionada. Clique em Salvar para gravar.`, 'ok');
+  }
+  markEmpty();
 }
 function markEmpty(){
   $$('#dBody .f.req').forEach(w => {
@@ -680,7 +736,7 @@ function markEmpty(){
     w.classList.toggle('empty-req', !(cb && cb.checked) && !String(el.value).trim());
   });
 }
-function closeDrawer(){ S.fila = []; S.xmlPend = null; $('#ov').classList.remove('show'); $('#drawer').classList.remove('show'); S.open = null; }
+function closeDrawer(){ S.fila = []; S.xmlPend = []; $('#ov').classList.remove('show'); $('#drawer').classList.remove('show'); S.open = null; }
 function readForm(){
   const cfg = TABS[S.tab], o = {};
   for(const [, fs] of cfg.secoes) for(const f of fs){
@@ -694,12 +750,14 @@ function readForm(){
       case 'uf': o[f.k] = v.toUpperCase() || null; continue;
       case 'transp': case 'vend': o[f.k] = v.toUpperCase() || null; continue;
       case 'date': o[f.k] = v || null; continue;
+      case 'multi': o[f.k] = nfJoin(v) || null; continue;
       default: o[f.k] = v || null;
     }
   }
-  o.nf = dig(o.nf) || o.nf;
+  const multi = k => cfg.secoes.some(([, fs]) => fs.some(f => f.k === k && f.t === 'multi'));
+  if(!multi('nf')) o.nf = dig(o.nf) || o.nf;
   if(!o.nf) throw 'Informe a nota fiscal.';
-  if(o.nfd !== undefined) o.nfd = dig(o.nfd) || null;
+  if(o.nfd !== undefined && !multi('nfd')) o.nfd = dig(o.nfd) || null;
   if(o.origem === 'Martins' && !o.vendedor) o.vendedor = 'MARTINS';
   return o;
 }
@@ -714,7 +772,8 @@ async function save(){
     else res = await sb.from(T(TABS[S.tab].tabela)).update(o).eq('id', S.open.id).select().single();
     if(res.error) throw res.error;
     upsertLocal(res.data);
-    if(S.isNew && S.xmlPend){ await salvarXml(S.tab, res.data.id, S.xmlPend.file, S.xmlPend.x); S.xmlPend = null; }
+    for(const p of S.xmlPend) await salvarXml(S.tab, res.data.id, p.file, p.x);
+    S.xmlPend = [];
     if(S.tab === 'des' && S.fila.length){ toast('Enviando anexos…'); await subirAnexos(res.data.id, S.fila); S.fila = []; }
     toast(res.data.status === 'completo' ? 'Salvo. Registro completo ✔' : res.data.status === 'coletada' ? 'Coleta confirmada ✔' : res.data.status === 'aberta' ? 'Salvo. Coleta em aberto.' : 'Salvo. Ainda há campos pendentes.', 'ok');
     closeDrawer(); refreshFilterOptions(); render();
@@ -743,8 +802,8 @@ function askDelete(){
 async function doDelete(){
   $('#cfModal').classList.remove('show');
   S.mute = Date.now() + 4000;
-  const xm = (S.xmls[S.tab] || {})[S.open.id];
-  if(xm){ await sb.storage.from(BUCKET).remove([xm.caminho]); await sb.from(T('xmls')).delete().eq('id', xm.id); }
+  const xs = (S.xmls[S.tab] || {})[S.open.id] || [];
+  if(xs.length){ await sb.storage.from(BUCKET).remove(xs.map(x => x.caminho)); await sb.from(T('xmls')).delete().in('id', xs.map(x => x.id)); }
   if(S.tab === 'des'){ // apaga também os arquivos guardados
     const cam = (S.anexos[S.open.id] || []).map(a => a.caminho);
     if(cam.length) await sb.storage.from(BUCKET).remove(cam);
@@ -841,25 +900,25 @@ async function loadXmls(tab){
   for(let from = 0; ; from += 1000){
     const { data, error } = await sb.from(T('xmls')).select('*').eq('aba', tab).order('created_at').range(from, from + 999);
     if(error){ console.warn('xmls:', error.message); break; }
-    data.forEach(x => S.xmls[tab][x.registro_id] = x);
+    data.forEach(x => (S.xmls[tab][x.registro_id] = S.xmls[tab][x.registro_id] || []).push(x));
     if(data.length < 1000) break;
   }
 }
 async function salvarXml(tab, id, file, x){
-  const caminho = `${PASTA}/xml/${tab}/${x.chave || ('nf' + x.nf)}_${id.slice(0,8)}.xml`;
+  const caminho = `${PASTA}/xml/${tab}/${x.chave || ('nf' + x.nf)}_${id.slice(0,8)}_${Date.now().toString(36)}.xml`;
   const up = await sb.storage.from(BUCKET).upload(caminho, file, { contentType: 'text/xml', upsert: true });
   if(up.error){ toast('Registro criado, mas não consegui guardar o XML: ' + up.error.message, 'bad'); return; }
   const r = await sb.from(T('xmls')).insert({ aba: tab, registro_id: id, nf: x.nf, chave_nfe: x.chave, nome_arquivo: file.name, caminho, tamanho: file.size }).select().single();
   if(r.error){ toast('XML enviado, mas não consegui registrar: ' + r.error.message, 'bad'); return; }
-  (S.xmls[tab] = S.xmls[tab] || {})[id] = r.data;
+  const m = (S.xmls[tab] = S.xmls[tab] || {}); (m[id] = m[id] || []).push(r.data);
 }
 function xmlLinha(r){
-  const xm = (S.xmls[S.tab] || {})[r.id];
-  return xm ? `<div class="meta">📄 XML da nota guardado · <button class="btn link" type="button" onclick="baixarXml('${r.id}')">Baixar XML</button></div>`
+  const xs = (S.xmls[S.tab] || {})[r.id] || [];
+  return xs.length ? `<div class="meta">📄 XML guardado: ${xs.map(x => `<button class="btn link" type="button" onclick="baixarXml('${r.id}','${x.id}')">NF ${esc(x.nf)}</button>`).join(' · ')}</div>`
             : `<div class="meta">📄 Sem XML guardado (registro manual, da planilha ou criado antes desta função)</div>`;
 }
-async function baixarXml(id){
-  const xm = (S.xmls[S.tab] || {})[id]; if(!xm) return;
+async function baixarXml(id, xid){
+  const xm = ((S.xmls[S.tab] || {})[id] || []).find(x => x.id === xid); if(!xm) return;
   const { data, error } = await sb.storage.from(BUCKET).createSignedUrl(xm.caminho, 60, { download: xm.nome_arquivo || ('NF' + xm.nf + '.xml') });
   if(error){ toast('Não consegui baixar: ' + error.message, 'bad'); return; }
   const l = document.createElement('a'); l.href = data.signedUrl; l.target = '_blank'; l.rel = 'noopener';
@@ -915,7 +974,7 @@ async function handleFiles(files){
       const nome = `NF ${esc(x.nf)} · ${esc(x.cliente || '')}`;
       const quem = x.origem === 'Martins' ? 'Martins' : `Avacy · ${esc(x.vendedor || 'vendedor não identificado')}`;
       // já existe?
-      const existentes = (S.data[S.tab] || []).filter(r => r.nf === x.nf);
+      const existentes = (S.data[S.tab] || []).filter(r => nfList(r.nf).includes(x.nf));
       if(S.tab === 'dev' && x.origem === 'Martins' && existentes.length){
         set('warn', nome, `Essa NF já está cadastrada (Martins é sempre devolução total).`, existentes[0]); continue;
       }
@@ -933,8 +992,8 @@ async function handleFiles(files){
         const novo = Object.fromEntries(Object.entries(o).filter(([k]) => COLS_DB.des.includes(k)));
         set('warn', nome, `${quem}. Escolha o tipo (NCC, NCC Manual, Abatimento ou Ressarcimento) e salve.`);
         item.insertAdjacentHTML('beforeend', '<button class="btn">Preencher</button>');
-        item.querySelector('button').onclick = () => { $('#upModal').classList.remove('show'); S.xmlPend = {file, x}; openDrawer(novo, true); };
-        if(files.length === 1){ $('#upModal').classList.remove('show'); S.xmlPend = {file, x}; openDrawer(novo, true); }
+        item.querySelector('button').onclick = () => { $('#upModal').classList.remove('show'); S.xmlPend = [{file, x}]; openDrawer(novo, true); };
+        if(files.length === 1){ $('#upModal').classList.remove('show'); S.xmlPend = [{file, x}]; openDrawer(novo, true); }
         continue;
       }
       const clean = Object.fromEntries(Object.entries(o).filter(([k]) => COLS_DB[S.tab].includes(k)));
