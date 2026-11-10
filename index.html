@@ -68,6 +68,9 @@ th.n{text-align:right}
 .st{display:inline-block;padding:3px 10px;border-radius:99px;font-size:12px;font-weight:600;white-space:nowrap;border:1px solid transparent}
 .st-pendente{background:rgba(245,158,11,.12);color:#FCD34D;border-color:rgba(245,158,11,.45)}
 .st-atrasada{background:rgba(239,68,68,.12);color:#FCA5A5;border-color:rgba(239,68,68,.45)}
+.st-agendada{background:rgba(13,148,136,.14);color:var(--teal-light);border-color:rgba(13,148,136,.45)}
+.st-recusada{background:rgba(107,100,144,.18);color:var(--mute);border-color:var(--line)}
+.reag{font-size:12px;color:var(--mute);margin-top:6px}.reag div{padding:2px 0}
 .st-completo{background:rgba(16,185,129,.12);color:#6EE7B7;border-color:rgba(16,185,129,.4)}
 .org{display:inline-block;font-size:11px;font-weight:700;padding:2px 8px;border-radius:6px}
 .org-Martins{background:rgba(13,148,136,.15);color:var(--teal-light)}
@@ -401,7 +404,7 @@ const TABS = {
     doXml: x => Object.assign(base(x), { pedido: x.origem === 'Martins' ? x.pedidoMts : x.pedidoAvacy, tipo: x.origem === 'Martins' ? 'Desconto' : null }),
   },
   col: {
-    titulo: 'Coleta', novo: '+ Nova coleta', tabela: 'coletas', dataKey: 'data_abertura', lblData: 'Abertura', transpKey: 'transp_coleta',
+    titulo: 'Coleta', novo: '+ Nova coleta', tabela: 'coletas', dataKey: 'data_abertura', lblData: 'Solicitação', transpKey: 'transp_coleta',
     busca: 'NF, NFD, CNPJ, cliente, protocolo, ocorrência',
     buscaKeys: ['nf','nfd','cnpj','cliente','protocolo','ocorrencia','vendedor'],
     cols: [
@@ -415,8 +418,10 @@ const TABS = {
       {h:'Pagamento', k:'forma_pagamento', v:r => r.forma_pagamento ? `<span class="nw">${esc(r.forma_pagamento)}</span>` : MISS},
       {h:'Protocolo', k:'protocolo', v:r => r.protocolo ? `<span class="mono nw">${esc(r.protocolo)}${copyBtn(r.protocolo)}</span>` : '<span class="sub">—</span>'},
       {h:'Motivo', k:'motivo', v:r => esc(r.motivo) || MISS},
-      {h:'Abertura', k:'data_abertura', v:r => `<span class="nw">${brDate(r.data_abertura)}</span>`},
-      {h:'Coleta', k:'data_coleta', v:r => r.data_coleta ? `<span class="nw">${brDate(r.data_coleta)}</span>` : `<span class="sub nw">há ${diasAberta(r)} dia(s)</span>`},
+      {h:'Solicitação', k:'data_abertura', v:r => `<span class="nw">${brDate(r.data_abertura)}</span>`},
+      {h:'Resposta', k:'data_resposta', v:r => r.data_resposta ? `<span class="nw">${brDate(r.data_resposta)}</span><div class="sub nw">${diasEntre(r.data_abertura, r.data_resposta)} dia(s)</div>` : (r.resposta ? '<span class="sub">—</span>' : `<span class="sub nw">aguardando há ${diasAberta(r)}d</span>`)},
+      {h:'Prevista', k:'data_prevista', v:r => r.data_prevista ? `<span class="nw">${brDate(r.data_prevista)}</span>${nReag(r) ? `<div class="sub nw" title="Reagendamentos">🔁 ${nReag(r)}x</div>` : ''}` : (r.resposta === 'aceita' ? MISS : '<span class="sub">—</span>')},
+      {h:'Coleta', k:'data_coleta', v:r => r.data_coleta ? `<span class="nw">${brDate(r.data_coleta)}</span>` : '<span class="sub">—</span>'},
       {h:'Ocorrência', k:'ocorrencia', v:r => r.ocorrencia ? `<div class="clip2" title="${esc(r.ocorrencia)}">${esc(r.ocorrencia)}</div>` : MISS},
     ],
     secoes: [
@@ -428,50 +433,74 @@ const TABS = {
         {k:'nfd', l:'NFDs', req:1, t:'multi', full:1},
         {k:'forma_pagamento', l:'Forma de pagamento', req:1, t:'sel', opts:['BOLETO','PIX','CARTÃO DE CRÉDITO']},
       ]],
-      ['Da coleta', [
-        {k:'transp_coleta', l:'Transportadora de coleta', req:1, t:'transp'}, {k:'protocolo', l:'Nº protocolo (opcional)'},
-        {k:'motivo', l:'Motivo', req:1, t:'motivoCol'}, {k:'data_abertura', l:'Data de abertura', req:1, t:'date'},
+      ['Da solicitação', [
+        {k:'transp_coleta', l:'Transportadora de coleta', req:1, t:'transp'}, {k:'data_abertura', l:'Data da solicitação', req:1, t:'date'},
+        {k:'motivo', l:'Motivo', req:1, t:'motivoCol'},
         {k:'ocorrencia', l:'Ocorrência', req:1, t:'area', full:1},
+      ]],
+      ['Resposta da transportadora', [
+        {k:'resposta', l:'Resposta', t:'resposta'}, {k:'data_resposta', l:'Data da resposta', t:'date'},
+        {k:'protocolo', l:'Nº protocolo (opcional)'}, {k:'data_prevista', l:'Data prevista da coleta', t:'date'},
+      ]],
+      ['Coleta', [
         {k:'data_coleta', l:'Data em que foi coletada', t:'date'},
       ]],
     ],
     csv: [
       ['NF', r => r.nf], ['CNPJ', r => r.cnpj], ['NFD', r => r.nfd], ['TRANSPORTADORA IDA', r => r.transp_ida], ['TRANSPORTADORA COLETA', r => r.transp_coleta],
       ['MOTIVO', r => r.motivo], ['OCORRÊNCIA', r => r.ocorrencia], ['FORMA DE PAGAMENTO', r => r.forma_pagamento], ['PROTOCOLO', r => r.protocolo],
-      ['DATA ABERTURA', r => brDate(r.data_abertura)], ['DATA COLETA', r => brDate(r.data_coleta)], ['STATUS', r => ({aberta:'Aberta', atrasada:'Atrasada', coletada:'Coletada'})[stInfo(r).k]], ['DIAS EM ABERTO', r => r.status === 'aberta' ? diasAberta(r) : ''],
+      ['DATA SOLICITAÇÃO', r => brDate(r.data_abertura)], ['RESPOSTA', r => ({aceita:'Aceita', recusada:'Recusada'})[r.resposta] || 'Aguardando'],
+      ['DATA RESPOSTA', r => brDate(r.data_resposta)], ['DIAS ATÉ RESPOSTA', r => r.data_resposta ? diasEntre(r.data_abertura, r.data_resposta) : ''],
+      ['DATA PREVISTA', r => brDate(r.data_prevista)], ['REAGENDAMENTOS', r => nReag(r)], ['DATA COLETA', r => brDate(r.data_coleta)],
+      ['STATUS', r => stInfo(r).nome],
     ],
-    kpis: rows => [['Coletas', rows.length], ['Em aberto', rows.filter(r => r.status === 'aberta').length], ['Coletadas', rows.filter(r => r.status === 'coletada').length]],
+    kpis: rows => [['Aguardando resposta', rows.filter(r => r.status === 'aguardando').length], ['Agendadas', rows.filter(r => r.status === 'agendada').length], ['Coletadas', rows.filter(r => r.status === 'coletada').length]],
     doXml: x => ({ origem: x.origem, vendedor: x.vendedor, nf: x.nf, cnpj: x.cnpj, cliente: x.cliente, transp_ida: transpCurta(x.transp), forma_pagamento: x.formaPag, chave_nfe: x.chave }),
   },
 };
 // ---------- status ----------
-const PRAZO_COLETA = 7; // dias: coleta aberta há mais que isso = atrasada
+const PRAZO_RESPOSTA = 7; // dias corridos para a transportadora responder
+const diasEntre = (a, b) => a && b ? Math.round((Date.parse(b) - Date.parse(a)) / 86400000) : '';
+const nReag = r => (S.reag[r.id] || []).length;
 const hojeISO = () => new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0,10);
 function diasAberta(r){ return r.data_abertura ? Math.max(0, Math.round((Date.parse(hojeISO()) - Date.parse(r.data_abertura)) / 86400000)) : 0; }
 function stInfo(r){
-  if(S.tab === 'col' || r.status === 'aberta' || r.status === 'coletada'){
-    if(r.status === 'coletada') return {k:'coletada', l:'Coletada', cls:'completo', rank:2};
+  if(S.tab === 'col' || ['aguardando','agendada','recusada','coletada'].includes(r.status)){
+    if(r.status === 'coletada') return {k:'coletada', nome:'Coletada', l:'Coletada', cls:'completo', rank:5};
+    if(r.status === 'recusada') return {k:'recusada', nome:'Recusada', l:'Recusada', cls:'recusada', rank:6};
+    if(r.status === 'agendada'){
+      if(!r.data_prevista) return {k:'agendada', nome:'Agendada', l:'Agendada · sem data', cls:'pendente', rank:2};
+      const atraso = diasEntre(r.data_prevista, hojeISO());
+      return atraso > 0 ? {k:'coleta_atrasada', nome:'Coleta atrasada', l:`Coleta atrasada · ${atraso}d`, cls:'atrasada', rank:0}
+                        : {k:'agendada', nome:'Agendada', l:`Agendada · ${brDate(r.data_prevista).slice(0,5)}`, cls:'agendada', rank:3};
+    }
     const d = diasAberta(r);
-    return d > PRAZO_COLETA ? {k:'atrasada', l:`Atrasada · ${d}d`, cls:'atrasada', rank:0} : {k:'aberta', l:'Aberta', cls:'pendente', rank:1};
+    return d > PRAZO_RESPOSTA ? {k:'sem_resposta', nome:'Sem resposta', l:`Sem resposta · ${d}d`, cls:'atrasada', rank:1}
+                              : {k:'aguardando', nome:'Aguardando resposta', l:'Aguardando resposta', cls:'pendente', rank:4};
   }
   return r.status === 'completo' ? {k:'completo', l:'Completo', cls:'completo', rank:1} : {k:'pendente', l:'Pendente', cls:'pendente', rank:0};
 }
 const badge = r => { const i = stInfo(r); return `<span class="st st-${i.cls}">${i.l}</span>`; };
-const STATUS_OPTS = { col: [['aberta','Em aberto (inclui atrasadas)'],['atrasada','Atrasada'],['coletada','Coletada']], _: [['pendente','Pendente'],['completo','Completo']] };
-function statusMatch(r, f){ const k = stInfo(r).k; return f === 'aberta' ? r.status === 'aberta' : k === f; }
+const STATUS_OPTS = { col: [['_atrasos','⚠ Todas as atrasadas'],['aguardando','Aguardando resposta (todas)'],['sem_resposta','· Sem resposta (+7 dias)'],['agendada','Agendada (todas)'],['coleta_atrasada','· Coleta atrasada'],['coletada','Coletada'],['recusada','Recusada']], _: [['pendente','Pendente'],['completo','Completo']] };
+function statusMatch(r, f){
+  const k = stInfo(r).k;
+  if(f === '_atrasos') return k === 'sem_resposta' || k === 'coleta_atrasada';
+  if(f === 'aguardando' || f === 'agendada') return r.status === f;
+  return k === f;
+}
 // campos que cada tabela realmente tem (o que vai para o banco)
 const COLS_DB = {
   dev: ['origem','vendedor','transportadora','cliente','cnpj','nf','uf','cep','valor_nf','chave_nfe','nfd','volumes','valor_nfd','data_devolucao','frete_ida','frete_ida_sem','frete_reverso','frete_reverso_sem','motivo','ocorrencia','pedido'],
   adi: ['origem','vendedor','cliente','cnpj','nf','valor_nf','transportadora','cep','valor_frete','frete_sem','valor_adicional','data_autorizacao','motivo'],
   des: ['origem','vendedor','tipo','pedido','nf','codigo_cliente','motivo','valor','data_autorizacao','ocorrencia'],
-  col: ['origem','vendedor','nf','cnpj','cliente','nfd','transp_ida','transp_coleta','motivo','ocorrencia','protocolo','forma_pagamento','data_abertura','data_coleta','chave_nfe'],
+  col: ['origem','vendedor','nf','cnpj','cliente','nfd','transp_ida','transp_coleta','motivo','ocorrencia','protocolo','forma_pagamento','data_abertura','data_coleta','chave_nfe','resposta','data_resposta','data_prevista'],
 };
 const base = x => ({ origem: x.origem, vendedor: x.vendedor, cliente: x.cliente, cnpj: x.cnpj, nf: x.nf, valor_nf: x.vNF });
 const sum = (rows, k) => rows.reduce((a, r) => a + (Number(r[k]) || 0), 0);
 const csvNum = v => v == null ? '' : Number(v).toFixed(2).replace('.', ',');
 
 // ---------- estado ----------
-const S = { xmls: {}, xmlPend: [], anexos: {}, fila: [], cfAction: null, tab: ['dev','adi','des','col'].includes(ls.get('dev_tab')) ? ls.get('dev_tab') : 'dev', data: {dev:null, adi:null, des:null, col:null},
+const S = { reag: {}, xmls: {}, xmlPend: [], anexos: {}, fila: [], cfAction: null, tab: ['dev','adi','des','col'].includes(ls.get('dev_tab')) ? ls.get('dev_tab') : 'dev', data: {dev:null, adi:null, des:null, col:null},
             motivos: [], sort: {}, open: null, isNew: false, mute: 0 };
 
 // ---------- toast ----------
@@ -492,7 +521,7 @@ async function fetchAll(tab){
 async function load(tab, force){
   if(S.data[tab] && !force) return;
   $('#rows').innerHTML = `<tr><td class="empty" colspan="20">Carregando…</td></tr>`;
-  try { S.data[tab] = await fetchAll(tab); if(tab === 'des') await loadAnexos(); await loadXmls(tab); }
+  try { S.data[tab] = await fetchAll(tab); if(tab === 'des') await loadAnexos(); if(tab === 'col') await loadReag(); await loadXmls(tab); }
   catch(e){ console.error(e); $('#rows').innerHTML = `<tr><td class="empty" colspan="20">Não consegui ler o banco (${esc(e.message)}). Confira se o SQL foi rodado.</td></tr>`; throw e; }
 }
 async function loadMotivos(){
@@ -573,14 +602,14 @@ function render(){
   const all = S.data[S.tab] || [];
   // KPIs
   const col = S.tab === 'col';
-  const pend = rows.filter(r => stInfo(r).k === (col ? 'atrasada' : 'pendente')).length;
+  const pend = rows.filter(r => col ? statusMatch(r, '_atrasos') : stInfo(r).k === 'pendente').length;
   $('#kpis').innerHTML = cfg.kpis(rows).map(([k, v]) => `<div class="kpi"><div class="k">${k}</div><div class="v">${v}</div></div>`).join('')
-    + `<div class="kpi ${col ? 'late' : 'pend'} click" id="kPend" title="Mostrar só esses"><div class="k">${col ? `Atrasadas (+${PRAZO_COLETA} dias)` : 'Pendentes'}</div><div class="v">${pend}</div></div>`;
-  $('#kPend').onclick = () => { $('#fStatus').value = col ? 'atrasada' : 'pendente'; render(); };
+    + `<div class="kpi ${col ? 'late' : 'pend'} click" id="kPend" title="Mostrar só esses"><div class="k">${col ? 'Atrasadas' : 'Pendentes'}</div><div class="v">${pend}</div></div>`;
+  $('#kPend').onclick = () => { $('#fStatus').value = col ? '_atrasos' : 'pendente'; render(); };
   // cabeçalho
   const s = S.sort[S.tab];
   $('#thead').innerHTML = '<tr>' + cfg.cols.map(c => `<th class="${c.n ? 'n' : ''}" data-k="${c.k}">${c.h}${s && s.k === c.k ? ` <span class="ar">${s.dir > 0 ? '▲' : '▼'}</span>` : ''}</th>`).join('') + '</tr>';
-  $('#count').textContent = `${rows.length} de ${all.length} registros` + (s ? '' : S.tab === 'col' ? ' · atrasadas primeiro, depois abertas e coletadas' : ' · pendentes primeiro, depois os mais recentes');
+  $('#count').textContent = `${rows.length} de ${all.length} registros` + (s ? '' : S.tab === 'col' ? ' · atrasadas primeiro, depois agendadas, aguardando, coletadas e recusadas' : ' · pendentes primeiro, depois os mais recentes');
   $('#rows').innerHTML = rows.length
     ? rows.map(r => `<tr data-id="${r.id}">` + cfg.cols.map(c => `<td class="${c.n ? 'n' : ''}">${c.v(r)}</td>`).join('') + '</tr>').join('')
     : `<tr><td class="empty" colspan="${cfg.cols.length}">Nenhum registro com esses filtros.</td></tr>`;
@@ -631,6 +660,7 @@ function fieldHTML(f, r){
       input = `<select id="${id}"><option value="">Escolha…</option>${ops.map(o => `<option ${o===v?'selected':''}>${esc(o)}</option>`).join('')}</select>`; break;
     }
     case 'sel': input = `<select id="${id}"><option value="">Escolha…</option>${f.opts.map(o => `<option ${o===v?'selected':''}>${o}</option>`).join('')}</select>`; break;
+    case 'resposta': input = `<select id="${id}"><option value="">Aguardando resposta</option><option value="aceita" ${v==='aceita'?'selected':''}>Aceita (vai coletar)</option><option value="recusada" ${v==='recusada'?'selected':''}>Recusada</option></select>`; break;
     case 'motivoCol': {
       const ops = (S.motivosCol || []).filter(m => m.ativo || m.nome === v).map(m => m.nome);
       input = `<select id="${id}"><option value="">Escolha…</option>${ops.map(o => `<option ${o===v?'selected':''}>${esc(o)}</option>`).join('')}</select>`; break;
@@ -652,9 +682,24 @@ function openDrawer(r, isNew=false){
     + (isNew ? '' : `<div class="meta">Criado em ${new Date(r.created_at).toLocaleString('pt-BR')} · última alteração ${new Date(r.updated_at).toLocaleString('pt-BR')}${r.importado ? ' · importado da planilha' : ''}</div>`)
     + (isNew ? (S.xmlPend.length ? `<div class="meta">📄 O XML da nota será guardado ao salvar.</div>` : '') : xmlLinha(r));
   $('#dDel').style.display = isNew ? 'none' : '';
-  $('#dConf').style.display = S.tab === 'col' && r.status !== 'coletada' ? '' : 'none';
+  $('#dConf').style.display = S.tab === 'col' && r.status === 'agendada' ? '' : 'none';
   $('#dReabrir').style.display = S.tab === 'col' && r.status === 'coletada' ? '' : 'none';
   if(S.tab === 'col' && isNew && !r.data_abertura) $('#e_data_abertura').value = hojeISO();
+  if(S.tab === 'col'){
+    const resp = $('#e_resposta'), wPrev = $('#dBody [data-f=data_prevista]'), wProt = $('#dBody [data-f=protocolo]'), wCol = $('#dBody [data-f=data_coleta]');
+    // histórico de reagendamentos abaixo da data prevista
+    const hist = (S.reag[r.id] || []);
+    if(hist.length) wPrev.insertAdjacentHTML('beforeend', `<div class="reag">🔁 Reagendada ${hist.length}x:${hist.map(h => `<div>${brDate(h.data_anterior)} → ${brDate(h.data_nova) || '(sem data)'} <span class="sub">em ${new Date(h.created_at).toLocaleDateString('pt-BR')}</span></div>`).join('')}</div>`);
+    const syncResp = (mudou) => {
+      const v = resp.value;
+      if(mudou && v && !$('#e_data_resposta').value) $('#e_data_resposta').value = hojeISO();
+      wPrev.classList.toggle('req', v === 'aceita');
+      wPrev.style.display = wProt.style.display = v === 'recusada' ? 'none' : '';
+      wCol.style.display = v === 'aceita' ? '' : 'none';
+      markEmpty();
+    };
+    resp.onchange = () => syncResp(true); syncResp(false);
+  }
   // comportamentos
   $$('#dBody .frete input[type=checkbox]').forEach(cb => cb.onchange = () => { const inp = cb.closest('.frete').querySelector('input[type=text]'); inp.disabled = cb.checked; if(cb.checked) inp.value = ''; markEmpty(); });
   const org = $('#e_origem');
@@ -764,6 +809,12 @@ function readForm(){
 async function save(){
   let o;
   try { o = readForm(); } catch(m){ toast(m, 'bad'); return; }
+  if(S.tab === 'col'){
+    if(o.resposta && !o.data_resposta) o.data_resposta = hojeISO();
+    if(!o.resposta) o.data_resposta = null;
+    if(o.resposta === 'aceita' && !o.data_prevista){ toast('Transportadora aceitou: informe a data prevista da coleta.', 'bad'); markEmpty(); return; }
+    if(o.resposta !== 'aceita') o.data_coleta = null;
+  }
   const btn = $('#dSave'); btn.disabled = true;
   S.mute = Date.now() + 4000;
   try {
@@ -772,10 +823,11 @@ async function save(){
     else res = await sb.from(T(TABS[S.tab].tabela)).update(o).eq('id', S.open.id).select().single();
     if(res.error) throw res.error;
     upsertLocal(res.data);
+    if(S.tab === 'col') await loadReag(res.data.id);
     for(const p of S.xmlPend) await salvarXml(S.tab, res.data.id, p.file, p.x);
     S.xmlPend = [];
     if(S.tab === 'des' && S.fila.length){ toast('Enviando anexos…'); await subirAnexos(res.data.id, S.fila); S.fila = []; }
-    toast(res.data.status === 'completo' ? 'Salvo. Registro completo ✔' : res.data.status === 'coletada' ? 'Coleta confirmada ✔' : res.data.status === 'aberta' ? 'Salvo. Coleta em aberto.' : 'Salvo. Ainda há campos pendentes.', 'ok');
+    toast(res.data.status === 'completo' ? 'Salvo. Registro completo ✔' : res.data.status === 'coletada' ? 'Coleta confirmada ✔' : res.data.status === 'agendada' ? 'Salvo. Coleta agendada.' : res.data.status === 'recusada' ? 'Salvo. Coleta recusada pela transportadora.' : res.data.status === 'aguardando' ? 'Salvo. Aguardando resposta da transportadora.' : 'Salvo. Ainda há campos pendentes.', 'ok');
     closeDrawer(); refreshFilterOptions(); render();
   } catch(e){ toast(errMsg(e), 'bad'); }
   finally { btn.disabled = false; }
@@ -894,6 +946,15 @@ function askRemoverAnexo(aid){
   $('#cfModal').classList.add('show');
 }
 
+// ---------- reagendamentos (coleta) ----------
+async function loadReag(id){
+  let q = sb.from(T('coleta_reagendamentos')).select('*').order('created_at');
+  if(id) q = q.eq('coleta_id', id);
+  const { data, error } = await q;
+  if(error){ console.warn('reagendamentos:', error.message); return; }
+  if(id) S.reag[id] = data; else { S.reag = {}; data.forEach(h => (S.reag[h.coleta_id] = S.reag[h.coleta_id] || []).push(h)); }
+}
+
 // ---------- XML guardado ----------
 async function loadXmls(tab){
   S.xmls[tab] = {};
@@ -982,8 +1043,8 @@ async function handleFiles(files){
         set('warn', nome, `Já existe uma devolução desta NF sem NFD. Complete a NFD dela antes de lançar outra.`, existentes.find(r => !r.nfd)); continue;
       }
       if(S.tab === 'col'){
-        const ab = existentes.find(r => r.status === 'aberta');
-        if(ab){ set('warn', nome, `Já existe uma coleta em aberto para essa NF. Nada foi criado.`, ab); continue; }
+        const ab = existentes.find(r => r.status === 'aguardando' || r.status === 'agendada');
+        if(ab){ set('warn', nome, `Já existe uma coleta em andamento para essa NF. Nada foi criado.`, ab); continue; }
       } else if(S.tab !== 'dev' && existentes.length){
         set('warn', nome, `Já existe ${existentes.length > 1 ? existentes.length + ' registros' : 'um registro'} com essa NF nesta aba. Nada foi criado.`, existentes[0]); continue;
       }
